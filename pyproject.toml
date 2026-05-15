@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hsr-nous"
+version = "0.1.0"
+description = "博识尊驱动战斗分析与配装优化"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+hsr-data-update = "hsr_nous.pipeline.update:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hsr_nous"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
