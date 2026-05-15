@@ -75,7 +75,7 @@
 #### 实际命中概率
 
 ```
-实际命中概率 = 基础概率 × (1 + EHR) × (1 - effectRes) × (1 - typeRes)
+实际命中概率 = min(1, 基础概率 × (1 + EHR) × (1 - effectRes) × (1 - typeRes))
 ```
 
 - `EHR`（Effect Hit Rate）：攻击方效果命中

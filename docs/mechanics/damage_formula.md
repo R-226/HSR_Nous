@@ -6,7 +6,7 @@
 ```
 伤害 = abilityMulti × dmgBoostMulti × indDmgBoostMulti × defMulti × resMulti
       × baseUniversalMulti × vulnMulti × indVulnMulti × finalDmgMulti
-      × critMulti × trueDmgMulti
+      × critMulti × weakenMulti × dmgRedMulti
 ```
 
 | 乘区 | 公式 |
@@ -21,7 +21,8 @@
 | indVulnMulti | 1 + 独立易伤 |
 | finalDmgMulti | 1 + 最终伤害加成 |
 | critMulti | 暴击率 × (1 + 暴击伤害) + (1 - 暴击率) |
-| trueDmgMulti | 1 + 真实伤害加成 |
+| weakenMulti | 1 - WEAKEN（见 2.7） |
+| dmgRedMulti | ∏(1 - DMG_RED)（见 2.7） |
 
 #### 基础属性
 
@@ -44,7 +45,7 @@ abilityMulti = atkScaling × ATK + hpScaling × HP + defScaling × DEF
 | 直伤（普攻/战技/终结技/追加攻击/附加伤害）| 全部 | 无 |
 | 常规持续伤害（DOT）| 除双暴区外全部 | 双暴区 |
 | 击破伤害 | 基础击破伤害、击破特攻、韧性系数、防御、易伤、减伤、抗性 | 双暴、增伤（仅 hit-level）|
-| 超击破伤害 | 超击破基数、击破特攻、削韧、防御、易伤、减伤、抗性 | 双暴、增伤（仅 hit-level）|
+| 超击破伤害 | 超击破基数、击破特攻、削韧、防御、易伤、减伤、抗性 | 双暴、增伤 |
 
 ### 2.2 防御乘区
 
@@ -135,8 +136,8 @@ dmgBoostMulti = 1 + DMG_BOOST + elementalDmgBoost
 indDmgBoostMulti = 1 + INDEPENDENT_DMG_BOOST
 ```
 
-- `DMG_BOOST`：通用增伤（如停云战技、属性球等）
-- `elementalDmgBoost`：对应属性增伤（如 `PHYSICAL_DMG_BOOST`、`FIRE_DMG_BOOST` 等）
+- `DMG_BOOST`：通用增伤（如停云战技、某些光锥特效等）
+- `elementalDmgBoost`：对应属性增伤（如属性球、`PHYSICAL_DMG_BOOST`、`FIRE_DMG_BOOST` 等）
 - `INDEPENDENT_DMG_BOOST`：独立增伤（如部分命途机制、特殊 buff 等）
 
 独立增伤区与普通增伤区**乘算**：
@@ -240,7 +241,7 @@ critMulti = effectiveCR × (1 + effectiveCD) + (1 - effectiveCR)
 
 ```
 breakDmg = baseUniversalMulti × defMulti × resMulti × vulnMulti × finalDmgMulti
-         × dmgBoostMulti × breakBaseMulti × beMulti × trueDmgMulti
+         × dmgBoostMulti × breakBaseMulti × beMulti × weakenMulti × dmgRedMulti
 
 breakBaseMulti = 3767.5533 × elementalBreakScaling × (0.5 + maxToughness / 120) × specialScaling
 beMulti = 1 + BE
@@ -272,7 +273,8 @@ beMulti = 1 + BE
 击破效果伤害公式通用框架：
 
 ```
-breakEffectDmg = levelBase × effectMultiplier × (1 + BE) × vulnMulti × defMulti × resMulti × dmgRedMulti
+breakEffectDmg = levelBase × effectMultiplier × (1 + BE) × vulnMulti × defMulti × resMulti
+               × dmgRedMulti × weakenMulti
 ```
 
 | 属性 | 击破效果 | 效果倍率 | 特殊机制 |
@@ -296,33 +298,33 @@ breakEffectDmg = levelBase × effectMultiplier × (1 + BE) × vulnMulti × defMu
 
 ```
 superBreakDmg = baseUniversalMulti × defMulti × resMulti × vulnMulti × finalDmgMulti
-              × dmgBoostMulti × superBreakBaseMulti × beMulti × superBreakModMulti × trueDmgMulti
+              × superBreakBaseMulti × beMulti × superBreakModMulti
+              × weakenMulti × dmgRedMulti
 
 superBreakBaseMulti = (3767.5533 / 10) × effectiveToughness
-effectiveToughness = breakEfficiencyMulti × toughnessDmg + fixedToughnessDmg
-breakEfficiencyMulti = 1 + BREAK_EFFICIENCY_BOOST
-superBreakModMulti = SUPER_BREAK_MODIFIER + extraSuperBreakModifier
+effectiveToughness = toughnessDmg × (1 + breakEfficiencyBoost) × (1 + weaknessBreakEfficiencyBoost) + fixedToughnessDmg
+superBreakModMulti = 1 + SUPER_BREAK_MODIFIER + extraSuperBreakModifier
 ```
 
 其中：
 - `toughnessDmg` 为本次攻击造成的削韧值
 - `fixedToughnessDmg` 为固定削韧值（不受削韧效率影响）
-- `BREAK_EFFICIENCY_BOOST` 为削韧效率加成（含削韧值提高与弱点击破效率提高）
-- `SUPER_BREAK_MODIFIER` 为超击破倍率（如忘归人、流萤等角色提供）
-- `extraSuperBreakModifier` 为本次攻击附带的额外超击破倍率
+- `breakEfficiencyBoost` 为削韧值提高（如角色行迹、光锥提供的削韧加成）
+- `weaknessBreakEfficiencyBoost` 为弱点击破效率提高（如某些遗器套装效果）
+- `SUPER_BREAK_MODIFIER` 为超击破伤害提高（如忘归人、流萤等角色提供）
+- `extraSuperBreakModifier` 为本次攻击附带的额外超击破伤害提高
 
 #### 技能最终削韧值
 
 ```
-effectiveToughness = breakEfficiencyMulti × toughnessDmg + fixedToughnessDmg
-breakEfficiencyMulti = 1 + BREAK_EFFICIENCY_BOOST
+effectiveToughness = toughnessDmg × (1 + breakEfficiencyBoost) × (1 + weaknessBreakEfficiencyBoost) + fixedToughnessDmg
 ```
 
-`BREAK_EFFICIENCY_BOOST` 同时包含：
-- 削韧值提高（如角色行迹、光锥提供的削韧加成）
-- 弱点击破效率提高（如某些遗器套装效果）
+- `breakEfficiencyBoost` 与 `weaknessBreakEfficiencyBoost` 为两个独立的乘区，**乘算**而非加算。
 
-> 超击破仅对处于击破状态的敌人生效，且 `dmgBoostMulti` 仅受 hit-level 增伤影响。
+> 超击破仅对处于击破状态的敌人生效。超击破伤害的属性取决于触发角色的属性（如火属性角色造成的超击破为火属性伤害）。
+>
+> 超击破**不吃攻击、不吃增伤、不吃双暴**，只吃等级、削韧值、击破特攻、超击破独立增伤、易伤、防御、抗性、减伤。
 
 ### 2.12 持续伤害（DOT）
 
@@ -352,7 +354,8 @@ breakEfficiencyMulti = 1 + BREAK_EFFICIENCY_BOOST
 
 ```
 dotDmg = baseUniversalMulti × defMulti × resMulti × vulnMulti × finalDmgMulti
-       × dmgBoostMulti × abilityMulti × ehrMulti × trueDmgMulti × dotTickCoefficientMulti
+       × dmgBoostMulti × abilityMulti × ehrMulti × dotTickCoefficientMulti
+       × weakenMulti × dmgRedMulti
 ```
 
 #### DOT 效果命中乘区

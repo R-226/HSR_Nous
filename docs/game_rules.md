@@ -46,7 +46,7 @@ AV = 10000 / speed
 ### 削韧值
 
 ```
-最终削韧 = baseToughnessDmg × breakEfficiencyMulti + fixedToughnessDmg
+最终削韧 = baseToughnessDmg × (1 + breakEfficiencyBoost) × (1 + weaknessBreakEfficiencyBoost) + fixedToughnessDmg
 ```
 
 详见 [mechanics/break_system.md](mechanics/break_system.md)。
