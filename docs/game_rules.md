@@ -30,7 +30,7 @@
 ```
 伤害 = 技能倍率(abilityMulti) × 增伤(dmgBoostMulti) × 独立增伤(indDmgBoostMulti) × 防御(defMulti) × 抗性(resMulti)
       × 韧性减伤(baseUniversalMulti) × 易伤(vulnMulti) × 独立易伤(indVulnMulti) × 最终伤害(finalDmgMulti)
-      × 暴击(critMulti) × 真实伤害(trueDmgMulti)
+      × 暴击(critMulti) × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 ```
 
 各乘区详见 [mechanics/damage_formula.md](mechanics/damage_formula.md)。
@@ -46,7 +46,7 @@ AV = 10000 / speed
 ### 削韧值
 
 ```
-最终削韧 = baseToughnessDmg × (1 + 削韧值提高(breakEfficiencyBoost)) × (1 + 弱点击破效率提高(weaknessBreakEfficiencyBoost)) + 固定削韧值(fixedToughnessDmg)
+最终削韧 = toughnessDmg × (1 + 削韧值提高(breakEfficiencyBoost)) × (1 + 弱点击破效率提高(weaknessBreakEfficiencyBoost)) + 固定削韧值(fixedToughnessDmg)
 ```
 
 详见 [mechanics/break_system.md](mechanics/break_system.md)。
@@ -55,18 +55,17 @@ AV = 10000 / speed
 
 ## 待确认事项
 
-- [ ] 部分怪物的效果抵抗/效果命中数值需要进一步验证
-- [ ] 持续伤害（DOT）的增益乘区生效情况是否覆盖所有角色
 - [ ] 追加攻击的触发条件分类是否需要进一步细化
-- [ ] 冻结与强烈震荡的补偿机制数值来源
-- [ ] 超击破伤害公式中的等级系数具体值
-- [ ] 真实伤害是否完全不受任何效果影响（包括减伤）
+- [ ] 强烈震荡的触发来源与抵抗机制
+- [ ] 真实伤害是否受减伤/虚弱影响
 
 ## 修改记录
 
+- 2026-05-16：批量修复文档矛盾（game_rules.md 速查公式删除残留 `trueDmgMulti`；待确认事项更新；修改记录修正抗性上下限描述和 `superBreakModMulti` 描述；break_system.md 补充量子/虚数击破独立推条比例；damage_formula.md 暴击表格改用 effectiveCR/effectiveCD、DOT 公式区分角色/击破 DOT、效果命中公式统一加入 EFFECT_RES_PEN、防御等价形式条件修正；energy_system.md 明确能量恢复效率面板为总倍率；buff_system.md 效果命中公式加入 EFFECT_RES_PEN）
+- 2026-05-16：damage_formula.md 修复（删除击破伤害公式中多余的 `增伤(dmgBoostMulti)`；精简 `击破特攻(击破特攻(BE))`、`等级基数(等级基数(levelBase))`、`效果倍率(效果倍率(effectMultiplier))` 等重复嵌套命名）
 - 2026-05-16：修正 base_stats.md 中打击方式示例角色（单体/扩散/弹射）
 - 2026-05-16：公式变量名统一为中文+英文格式（如 `防御(defMulti)`）；补充参考来源（紫喵Azunya 入坑指南系列）
-- 2026-05-16：超击破公式修正（删除 `dmgBoostMulti`；削韧效率拆为两个乘算乘区；`superBreakModMulti` 修正为 `1 + modifier`）；添加双击破机制；击破/超击破/DOT 删除 `trueDmgMulti`；主公式删除 `trueDmgMulti`；添加 `weakenMulti` 和 `dmgRedMulti`；普攻削韧值修正为 10；速度公式修正为百分比加成；能量恢复效率基础值修正为 100%；效果命中公式加 `min(1, ...)` 上限
+- 2026-05-16：超击破公式修正（删除 `dmgBoostMulti`；削韧效率拆为两个乘算乘区；`superBreakModMulti` 修正为 `1 + SUPER_BREAK_MODIFIER + extraSuperBreakModifier`）；添加双击破机制；击破/超击破/DOT 删除 `trueDmgMulti`；主公式删除 `trueDmgMulti`；添加 `weakenMulti` 和 `dmgRedMulti`；普攻削韧值修正为 10；速度公式修正为百分比加成；能量恢复效率基础值修正为 100%；效果命中公式加 `min(1, ...)` 上限
 - 2026-05-15：拆分为 `mechanics/` 目录下的独立文档，`game_rules.md` 改为总纲
 - 2026-05-15：新增 1.4 记忆命途与忆灵、2.8 真实伤害、2.2 防御乘区收益特性
-- 2026-05-15：新增独立增伤区、独立易伤区；修正抗性上下限为 ±100%
+- 2026-05-15：新增独立增伤区、独立易伤区；修正抗性上限为 90%、下限为 -100%

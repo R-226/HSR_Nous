@@ -4,7 +4,7 @@
 ### 2.1 基础伤害（Ability Multiplier）
 
 ```
-伤害 = 技能倍率(abilityMulti) × 增伤(dmgBoostMulti) × 独立增伤(indDmgBoostMulti) × 防御(defMulti) × 抗性(resMulti)
+伤害 = 基础乘区(abilityMulti) × 增伤(dmgBoostMulti) × 独立增伤(indDmgBoostMulti) × 防御(defMulti) × 抗性(resMulti)
       × 韧性减伤(baseUniversalMulti) × 易伤(vulnMulti) × 独立易伤(indVulnMulti) × 最终伤害(finalDmgMulti)
       × 暴击(critMulti) × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 ```
@@ -20,7 +20,7 @@
 | vulnMulti | 1 + 易伤 |
 | indVulnMulti | 1 + 独立易伤 |
 | finalDmgMulti | 1 + 最终伤害加成 |
-| critMulti | 暴击率 × (1 + 暴击伤害) + (1 - 暴击率) |
+| critMulti | 有效暴击率 × (1 + 有效暴击伤害) + (1 - 有效暴击率) |
 | weakenMulti | 1 - WEAKEN（见 2.7） |
 | dmgRedMulti | ∏(1 - DMG_RED)（见 2.7） |
 
@@ -44,8 +44,10 @@
 |---------|---------|-----------|
 | 直伤（普攻/战技/终结技/追加攻击/附加伤害）| 全部 | 无 |
 | 常规持续伤害（DOT）| 除双暴区外全部 | 双暴区 |
-| 击破伤害 | 基础击破伤害、击破特攻、韧性系数、防御、易伤、减伤、抗性 | 双暴、增伤（仅 hit-level）|
+| 击破伤害 | 基础击破伤害、击破特攻、韧性系数、防御、易伤、减伤、抗性 | 双暴、增伤 |
 | 超击破伤害 | 超击破基数、击破特攻、削韧、防御、易伤、减伤、抗性 | 双暴、增伤 |
+
+> 击破伤害与超击破伤害**均不吃增伤**（包括通用增伤和属性增伤）。
 
 ### 2.2 防御乘区
 
@@ -53,10 +55,10 @@
 防御(defMulti) = (攻击者等级(attackerLevel) + 20) / ((敌人等级(enemyLevel) + 20) × max(0, 1 - 防御穿透(DEF_PEN)) + (攻击者等级(attackerLevel) + 20))
 ```
 
-等价形式（当 DEF_PEN = 0 时）：
+等价形式（基于 `敌人防御(enemyDEF) = 200 + 10 × 敌人等级(enemyLevel)`）：
 
 ```
-防御(defMulti) = 1 - (敌人防御(enemyDEF) / (敌人防御(enemyDEF) + 200 + 10 × 攻击者等级(attackerLevel)))
+防御(defMulti) = 1 - (敌人防御(enemyDEF) × max(0, 1 - 防御穿透(DEF_PEN)) / (敌人防御(enemyDEF) × max(0, 1 - 防御穿透(DEF_PEN)) + 200 + 10 × 攻击者等级(attackerLevel)))
 敌人防御(enemyDEF) = 200 + 10 × 敌人等级(enemyLevel)
 ```
 
@@ -94,7 +96,7 @@
 其中：
 - `enemyResistance` 为目标当前抗性
 - `RES_PEN` 为抗性穿透（含抗性降低）
-- `effectiveResistance = clamp(enemyResistance - RES_PEN, -1.0, 1.0)`
+- `effectiveResistance = clamp(enemyResistance - RES_PEN, -1.0, 0.9)`
 
 #### 怪物基础抗性
 
@@ -105,20 +107,12 @@
 
 > 怪物对非弱点属性的 20% 基础抗性不会显示在怪物面板中。
 
-#### 负抗性处理
-
-当 `effectiveResistance < 0`（负抗性）时，收益减半：
-
-```
-抗性(resMulti) = 1 - 有效抗性(effectiveResistance) / 2
-```
-
 #### 抗性上下限
 
-- 抗性上限 **100%**：目标完全免疫该属性伤害（`resMulti = 0`）
-- 抗性下限 **-100%**：超额穿透收益减半后，`resMulti` 最高为 **1.5**
+- 抗性上限 **90%**：超过 90% 后仍按 90% 计算
+- 抗性下限 **-100%**：超额穿透后 `resMulti` 最高为 **2.0**
 
-抗性乘区取值范围为 **[0, 1.5]**。
+抗性乘区取值范围为 **[0.1, 2.0]**。
 
 ### 2.4 韧性减伤乘区（Base Universal Multiplier）
 
@@ -155,7 +149,7 @@
 独立易伤(indVulnMulti) = 1 + 独立易伤(INDEPENDENT_VULNERABILITY)
 ```
 
-- `VULNERABILITY`：常规易伤加成（如佩拉终结技、银狼战技等）
+- `VULNERABILITY`：常规易伤加成（如姬子秘技、桑博终结技等）
 - `INDEPENDENT_VULNERABILITY`：独立易伤（如部分特殊机制提供的易伤）
 
 独立易伤区与普通易伤区**乘算**：
@@ -201,7 +195,7 @@
 #### 真实伤害计算公式
 
 ```
-真实伤害 = 固定数值来源 × 真实伤害倍率 × 真实伤害(trueDmgMulti)
+真实伤害 = 固定数值来源 × 真实伤害倍率 × 真实伤害加成(trueDmgMulti)
 ```
 
 - **固定数值来源**：根据机制描述替换，如"原伤害"、"目标生命值上限"等
@@ -209,11 +203,11 @@
 - `trueDmgMulti`：真实伤害加成乘区
 
 ```
-真实伤害(trueDmgMulti) = 1 + 真实伤害加成(TRUE_DMG_MODIFIER) + 攻击真实伤害加成(hitTrueDmgModifier)
+真实伤害加成乘区(trueDmgMulti) = 1 + 角色真实伤害加成(TRUE_DMG_MODIFIER) + 攻击真实伤害加成(hitTrueDmgModifier)
 ```
 
-- `TRUE_DMG_MODIFIER`：角色身上的真实伤害加成
-- `hitTrueDmgModifier`：本次攻击附带的额外真实伤害加成
+- `TRUE_DMG_MODIFIER`：角色身上的真实伤害加成值
+- `hitTrueDmgModifier`：本次攻击附带的额外真实伤害加成值
 
 #### 常见场景
 
@@ -241,10 +235,10 @@
 
 ```
 击破伤害(breakDmg) = 韧性减伤(baseUniversalMulti) × 防御(defMulti) × 抗性(resMulti) × 易伤(vulnMulti) × 最终伤害(finalDmgMulti)
-         × 增伤(dmgBoostMulti) × 击破基数(breakBaseMulti) × 击破特攻区(beMulti) × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
+         × 击破基数(breakBaseMulti) × 击破特攻区(beMulti) × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 
 击破基数(breakBaseMulti) = 3767.5533 × 属性击破倍率(elementalBreakScaling) × (0.5 + 最大韧性(maxToughness) / 120) × 特殊倍率(specialScaling)
-击破特攻区(beMulti) = 1 + 击破特攻(击破特攻(BE))
+击破特攻区(beMulti) = 1 + 击破特攻(BE)
 ```
 
 其中：
@@ -266,14 +260,14 @@
 | 量子 | 50% |
 | 虚数 | 50% |
 
-> 击破伤害的 `dmgBoostMulti` 仅受 hit-level 增伤影响，不受通用增伤和属性增伤影响。
+> 击破伤害**不吃增伤**（包括通用增伤和属性增伤）。
 
 #### 各属性击破效果
 
 击破效果伤害公式通用框架：
 
 ```
-击破效果伤害(breakEffectDmg) = 等级基数(等级基数(levelBase)) × 效果倍率(效果倍率(effectMultiplier)) × (1 + 击破特攻(击破特攻(BE))) × 易伤(vulnMulti) × 防御(defMulti) × 抗性(resMulti)
+击破效果伤害(breakEffectDmg) = 等级基数(levelBase) × 效果倍率(effectMultiplier) × (1 + 击破特攻(BE)) × 易伤(vulnMulti) × 防御(defMulti) × 抗性(resMulti)
                × 减伤(dmgRedMulti) × 虚弱(weakenMulti)
 ```
 
@@ -281,11 +275,11 @@
 |------|---------|---------|---------|
 | 物理 | 裂伤 | Min(敌人类型系数×HP, levelBase×韧性单位×2) | 持续伤害，敌人类型系数：精英/首领 7%，普通 16% |
 | 火 | 灼烧 | 100% | 持续伤害 |
-| 冰 | 冻结 | 100% | 附加伤害 |
+| 冰 | 冻结 | 100% | 附加伤害；冻结恢复后下一轮行动值为原行动值的 50% |
 | 雷 | 触电 | 200% | 持续伤害 |
-| 风 | 风化 | 每层 100% | 持续伤害，可叠加多层 |
+| 风 | 风化 | 每层 100% | 持续伤害，可叠加多层；精英怪被击破时直接叠加 3 层；风化状态下被击破可叠加并重置回合 |
 | 量子 | 纠缠 | 60% × 层数 | 附加伤害，行动延后 20%×(1+BE) |
-| 虚数 | 禁锢 | 无伤害 | 行动延后 30%×(1+BE)，减速 10% |
+| 虚数 | 禁锢 | 无伤害 | 行动延后 30%×(1+BE)，减速 10%（可与其他减速叠加） |
 
 #### 量子纠缠详细规则
 
@@ -353,10 +347,12 @@
 #### 伤害公式
 
 ```
-持续伤害(dotDmg) = 韧性减伤(baseUniversalMulti) × 防御(defMulti) × 抗性(resMulti) × 易伤(vulnMulti) × 最终伤害(finalDmgMulti)
+角色持续伤害(dotDmg) = 韧性减伤(baseUniversalMulti) × 防御(defMulti) × 抗性(resMulti) × 易伤(vulnMulti) × 最终伤害(finalDmgMulti)
        × 增伤(dmgBoostMulti) × 技能倍率(abilityMulti) × 效果命中区(ehrMulti) × DOT跳数系数(dotTickCoefficientMulti)
        × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 ```
+
+> 角色 DOT 的 `abilityMulti` 按角色面板计算（攻击力/生命值/防御力 × 倍率）；击破 DOT 的 `abilityMulti` 按击破基数计算（见击破效果表格），不依赖角色攻击力。
 
 #### DOT 效果命中乘区
 
@@ -391,15 +387,16 @@
 #### 治疗
 
 ```
-治疗量(heal) = 基础治疗(baseHeal) × 治疗加成区(ohbMulti) × 治疗加成区(healBoostMulti)
+治疗量(heal) = 基础治疗(baseHeal) × 治疗加成区(healMulti)
 
 基础治疗(baseHeal) = 攻击倍率(atkScaling) × 攻击力(ATK) + 生命倍率(hpScaling) × 生命值(HP) + 固定治疗(flatHeal)
-治疗加成区(ohbMulti) = 1 + 治疗加成(OHB)
-治疗加成区(healBoostMulti) = 1 + 治疗加成(healBoost)
+治疗加成区(healMulti) = 1 + 治疗量加成(OHB) + 受治疗量加成(INCOMING_HEAL)
 ```
 
-- `OHB`（Outgoing Healing Boost）：治疗量加成
-- `healBoost`：治疗 boost（来自 DMG_BOOST slot，过滤为治疗类型）
+- `OHB`（Outgoing Healing Boost）：治疗者自身的治疗量加成（如治疗衣、遗器套装、光锥等）
+- `INCOMING_HEAL`：被治疗者的受治疗量加成（如部分角色技能、光锥提供的受治疗提高）
+
+> 治疗量加成与受治疗量加成属于**同一乘区**，加法叠加后作为总倍率。
 
 #### 护盾
 
