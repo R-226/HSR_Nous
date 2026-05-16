@@ -4,9 +4,9 @@
 ### 2.1 基础伤害（Ability Multiplier）
 
 ```
-伤害 = abilityMulti × dmgBoostMulti × indDmgBoostMulti × defMulti × resMulti
-      × baseUniversalMulti × vulnMulti × indVulnMulti × finalDmgMulti
-      × critMulti × weakenMulti × dmgRedMulti
+伤害 = 技能倍率(abilityMulti) × 增伤(dmgBoostMulti) × 独立增伤(indDmgBoostMulti) × 防御(defMulti) × 抗性(resMulti)
+      × 韧性减伤(baseUniversalMulti) × 易伤(vulnMulti) × 独立易伤(indVulnMulti) × 最终伤害(finalDmgMulti)
+      × 暴击(critMulti) × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 ```
 
 | 乘区 | 公式 |
@@ -27,7 +27,7 @@
 #### 基础属性
 
 ```
-abilityMulti = atkScaling × ATK + hpScaling × HP + defScaling × DEF
+技能倍率(abilityMulti) = 攻击倍率(atkScaling) × 攻击力(ATK) + 生命倍率(hpScaling) × 生命值(HP) + 防御倍率(defScaling) × 防御力(DEF)
 ```
 
 基础属性取值：
@@ -50,20 +50,20 @@ abilityMulti = atkScaling × ATK + hpScaling × HP + defScaling × DEF
 ### 2.2 防御乘区
 
 ```
-defMulti = (attackerLevel + 20) / ((enemyLevel + 20) × max(0, 1 - DEF_PEN) + (attackerLevel + 20))
+防御(defMulti) = (攻击者等级(attackerLevel) + 20) / ((敌人等级(enemyLevel) + 20) × max(0, 1 - 防御穿透(DEF_PEN)) + (攻击者等级(attackerLevel) + 20))
 ```
 
 等价形式（当 DEF_PEN = 0 时）：
 
 ```
-defMulti = 1 - (enemyDEF / (enemyDEF + 200 + 10 × attackerLevel))
-enemyDEF = 200 + 10 × enemyLevel
+防御(defMulti) = 1 - (敌人防御(enemyDEF) / (敌人防御(enemyDEF) + 200 + 10 × 攻击者等级(attackerLevel)))
+敌人防御(enemyDEF) = 200 + 10 × 敌人等级(enemyLevel)
 ```
 
 其中 `DEF_PEN` 为防御穿透，由以下部分构成：
 
 ```
-DEF_PEN = ∑攻击方无视防御% + ∑受击方防御降低%
+防御穿透(DEF_PEN) = ∑攻击方无视防御% + ∑受击方防御降低%
 ```
 
 - **无视防御**：攻击方属性（如光锥、行迹、星魂等提供的无视防御）
@@ -88,7 +88,7 @@ DEF_PEN = ∑攻击方无视防御% + ∑受击方防御降低%
 ### 2.3 抗性乘区
 
 ```
-resMulti = 1 - effectiveResistance
+抗性(resMulti) = 1 - 有效抗性(effectiveResistance)
 ```
 
 其中：
@@ -110,7 +110,7 @@ resMulti = 1 - effectiveResistance
 当 `effectiveResistance < 0`（负抗性）时，收益减半：
 
 ```
-resMulti = 1 - effectiveResistance / 2
+抗性(resMulti) = 1 - 有效抗性(effectiveResistance) / 2
 ```
 
 #### 抗性上下限
@@ -123,8 +123,8 @@ resMulti = 1 - effectiveResistance / 2
 ### 2.4 韧性减伤乘区（Base Universal Multiplier）
 
 ```
-baseUniversalMulti = 1.0  （目标已击破）
-baseUniversalMulti = 0.9  （目标未击破）
+韧性减伤(baseUniversalMulti) = 1.0  （目标已击破）
+韧性减伤(baseUniversalMulti) = 0.9  （目标未击破）
 ```
 
 > 注：崩铁中未击破敌人统一受到 10% 伤害减免，击破后无减免。
@@ -132,8 +132,8 @@ baseUniversalMulti = 0.9  （目标未击破）
 ### 2.5 增伤乘区
 
 ```
-dmgBoostMulti = 1 + DMG_BOOST + elementalDmgBoost
-indDmgBoostMulti = 1 + INDEPENDENT_DMG_BOOST
+增伤(dmgBoostMulti) = 1 + 通用增伤(DMG_BOOST) + 属性增伤(elementalDmgBoost)
+独立增伤(indDmgBoostMulti) = 1 + 独立增伤(INDEPENDENT_DMG_BOOST)
 ```
 
 - `DMG_BOOST`：通用增伤（如停云战技、某些光锥特效等）
@@ -143,7 +143,7 @@ indDmgBoostMulti = 1 + INDEPENDENT_DMG_BOOST
 独立增伤区与普通增伤区**乘算**：
 
 ```
-totalDmgBoost = dmgBoostMulti × indDmgBoostMulti
+总增伤(totalDmgBoost) = 增伤(dmgBoostMulti) × 独立增伤(indDmgBoostMulti)
 ```
 
 > 独立增伤不受常规增伤稀释影响，为独立乘区。
@@ -151,8 +151,8 @@ totalDmgBoost = dmgBoostMulti × indDmgBoostMulti
 ### 2.6 易伤乘区
 
 ```
-vulnMulti = 1 + VULNERABILITY
-indVulnMulti = 1 + INDEPENDENT_VULNERABILITY
+易伤(vulnMulti) = 1 + 易伤(VULNERABILITY)
+独立易伤(indVulnMulti) = 1 + 独立易伤(INDEPENDENT_VULNERABILITY)
 ```
 
 - `VULNERABILITY`：常规易伤加成（如佩拉终结技、银狼战技等）
@@ -161,7 +161,7 @@ indVulnMulti = 1 + INDEPENDENT_VULNERABILITY
 独立易伤区与普通易伤区**乘算**：
 
 ```
-totalVuln = vulnMulti × indVulnMulti
+总易伤(totalVuln) = 易伤(vulnMulti) × 独立易伤(indVulnMulti)
 ```
 
 > 独立易伤不受常规易伤稀释影响，为独立乘区。
@@ -169,7 +169,7 @@ totalVuln = vulnMulti × indVulnMulti
 ### 2.7 最终伤害乘区
 
 ```
-finalDmgMulti = 1 + FINAL_DMG_BOOST
+最终伤害(finalDmgMulti) = 1 + 最终伤害加成(FINAL_DMG_BOOST)
 ```
 
 `FINAL_DMG_BOOST` 为最终伤害加成，在所有其他乘区之后独立计算。
@@ -177,8 +177,8 @@ finalDmgMulti = 1 + FINAL_DMG_BOOST
 #### 虚弱区与减伤区（补充乘区）
 
 ```
-weakenMulti = 1 - WEAKEN
-dmgRedMulti = ∏(1 - DMG_RED)
+虚弱(weakenMulti) = 1 - 虚弱(WEAKEN)
+减伤(dmgRedMulti) = ∏(1 - 伤害减免(DMG_RED))
 ```
 
 - `WEAKEN`：我方受到的伤害降低效果（如敌方施加的虚弱 debuff）
@@ -201,7 +201,7 @@ dmgRedMulti = ∏(1 - DMG_RED)
 #### 真实伤害计算公式
 
 ```
-真实伤害 = 固定数值来源 × 真实伤害倍率 × trueDmgMulti
+真实伤害 = 固定数值来源 × 真实伤害倍率 × 真实伤害(trueDmgMulti)
 ```
 
 - **固定数值来源**：根据机制描述替换，如"原伤害"、"目标生命值上限"等
@@ -209,7 +209,7 @@ dmgRedMulti = ∏(1 - DMG_RED)
 - `trueDmgMulti`：真实伤害加成乘区
 
 ```
-trueDmgMulti = 1 + TRUE_DMG_MODIFIER + hitTrueDmgModifier
+真实伤害(trueDmgMulti) = 1 + 真实伤害加成(TRUE_DMG_MODIFIER) + 攻击真实伤害加成(hitTrueDmgModifier)
 ```
 
 - `TRUE_DMG_MODIFIER`：角色身上的真实伤害加成
@@ -225,9 +225,9 @@ trueDmgMulti = 1 + TRUE_DMG_MODIFIER + hitTrueDmgModifier
 ### 2.9 暴击乘区
 
 ```
-effectiveCR = min(1, CR + CR_BOOST)
-effectiveCD = CD + CD_BOOST
-critMulti = effectiveCR × (1 + effectiveCD) + (1 - effectiveCR)
+有效暴击率(effectiveCR) = min(1, 暴击率(CR) + 暴击率加成(CR_BOOST))
+有效暴击伤害(effectiveCD) = 暴击伤害(CD) + 暴击伤害加成(CD_BOOST)
+暴击(critMulti) = 有效暴击率(effectiveCR) × (1 + 有效暴击伤害(effectiveCD)) + (1 - 有效暴击率(effectiveCR))
 ```
 
 - `CR`：面板暴击率
@@ -240,11 +240,11 @@ critMulti = effectiveCR × (1 + effectiveCD) + (1 - effectiveCR)
 ### 2.10 击破伤害
 
 ```
-breakDmg = baseUniversalMulti × defMulti × resMulti × vulnMulti × finalDmgMulti
-         × dmgBoostMulti × breakBaseMulti × beMulti × weakenMulti × dmgRedMulti
+击破伤害(breakDmg) = 韧性减伤(baseUniversalMulti) × 防御(defMulti) × 抗性(resMulti) × 易伤(vulnMulti) × 最终伤害(finalDmgMulti)
+         × 增伤(dmgBoostMulti) × 击破基数(breakBaseMulti) × 击破特攻区(beMulti) × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 
-breakBaseMulti = 3767.5533 × elementalBreakScaling × (0.5 + maxToughness / 120) × specialScaling
-beMulti = 1 + BE
+击破基数(breakBaseMulti) = 3767.5533 × 属性击破倍率(elementalBreakScaling) × (0.5 + 最大韧性(maxToughness) / 120) × 特殊倍率(specialScaling)
+击破特攻区(beMulti) = 1 + 击破特攻(击破特攻(BE))
 ```
 
 其中：
@@ -273,8 +273,8 @@ beMulti = 1 + BE
 击破效果伤害公式通用框架：
 
 ```
-breakEffectDmg = levelBase × effectMultiplier × (1 + BE) × vulnMulti × defMulti × resMulti
-               × dmgRedMulti × weakenMulti
+击破效果伤害(breakEffectDmg) = 等级基数(等级基数(levelBase)) × 效果倍率(效果倍率(effectMultiplier)) × (1 + 击破特攻(击破特攻(BE))) × 易伤(vulnMulti) × 防御(defMulti) × 抗性(resMulti)
+               × 减伤(dmgRedMulti) × 虚弱(weakenMulti)
 ```
 
 | 属性 | 击破效果 | 效果倍率 | 特殊机制 |
@@ -297,13 +297,13 @@ breakEffectDmg = levelBase × effectMultiplier × (1 + BE) × vulnMulti × defMu
 ### 2.11 超击破伤害（Super Break）
 
 ```
-superBreakDmg = baseUniversalMulti × defMulti × resMulti × vulnMulti × finalDmgMulti
-              × superBreakBaseMulti × beMulti × superBreakModMulti
-              × weakenMulti × dmgRedMulti
+超击破伤害(superBreakDmg) = 韧性减伤(baseUniversalMulti) × 防御(defMulti) × 抗性(resMulti) × 易伤(vulnMulti) × 最终伤害(finalDmgMulti)
+              × 超击破基数(superBreakBaseMulti) × 击破特攻区(beMulti) × 超击破倍率(superBreakModMulti)
+              × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 
-superBreakBaseMulti = (3767.5533 / 10) × effectiveToughness
-effectiveToughness = toughnessDmg × (1 + breakEfficiencyBoost) × (1 + weaknessBreakEfficiencyBoost) + fixedToughnessDmg
-superBreakModMulti = 1 + SUPER_BREAK_MODIFIER + extraSuperBreakModifier
+超击破基数(superBreakBaseMulti) = (3767.5533 / 10) × 有效削韧值(effectiveToughness)
+有效削韧值(effectiveToughness) = 削韧值(toughnessDmg) × (1 + 削韧值提高(breakEfficiencyBoost)) × (1 + 弱点击破效率提高(weaknessBreakEfficiencyBoost)) + 固定削韧值(fixedToughnessDmg)
+超击破倍率(superBreakModMulti) = 1 + 超击破伤害提高(SUPER_BREAK_MODIFIER) + 额外超击破伤害提高(extraSuperBreakModifier)
 ```
 
 其中：
@@ -317,7 +317,7 @@ superBreakModMulti = 1 + SUPER_BREAK_MODIFIER + extraSuperBreakModifier
 #### 技能最终削韧值
 
 ```
-effectiveToughness = toughnessDmg × (1 + breakEfficiencyBoost) × (1 + weaknessBreakEfficiencyBoost) + fixedToughnessDmg
+有效削韧值(effectiveToughness) = 削韧值(toughnessDmg) × (1 + 削韧值提高(breakEfficiencyBoost)) × (1 + 弱点击破效率提高(weaknessBreakEfficiencyBoost)) + 固定削韧值(fixedToughnessDmg)
 ```
 
 - `breakEfficiencyBoost` 与 `weaknessBreakEfficiencyBoost` 为两个独立的乘区，**乘算**而非加算。
@@ -353,15 +353,15 @@ effectiveToughness = toughnessDmg × (1 + breakEfficiencyBoost) × (1 + weakness
 #### 伤害公式
 
 ```
-dotDmg = baseUniversalMulti × defMulti × resMulti × vulnMulti × finalDmgMulti
-       × dmgBoostMulti × abilityMulti × ehrMulti × dotTickCoefficientMulti
-       × weakenMulti × dmgRedMulti
+持续伤害(dotDmg) = 韧性减伤(baseUniversalMulti) × 防御(defMulti) × 抗性(resMulti) × 易伤(vulnMulti) × 最终伤害(finalDmgMulti)
+       × 增伤(dmgBoostMulti) × 技能倍率(abilityMulti) × 效果命中区(ehrMulti) × DOT跳数系数(dotTickCoefficientMulti)
+       × 虚弱(weakenMulti) × 减伤(dmgRedMulti)
 ```
 
 #### DOT 效果命中乘区
 
 ```
-effectiveDotChance = min(1, dotBaseChance × (1 + EHR) × (1 - enemyEffectRes + EFFECT_RES_PEN))
+有效DOT概率(effectiveDotChance) = min(1, DOT基础概率(dotBaseChance) × (1 + 效果命中(EHR)) × (1 - 敌人效果抵抗(enemyEffectRes) + 效果抵抗穿透(EFFECT_RES_PEN)))
 ```
 
 - `dotBaseChance`：DOT 基础概率（由技能/光锥决定）
@@ -374,13 +374,13 @@ effectiveDotChance = min(1, dotBaseChance × (1 + EHR) × (1 - enemyEffectRes + 
 当 `dotSplit > 0` 时：
 
 ```
-ehrMulti = (1 + dotSplit × effectiveDotChance × (dotStacks - 1)) / (1 + dotSplit × (dotStacks - 1))
+效果命中区(ehrMulti) = (1 + DOT分裂系数(dotSplit) × 有效DOT概率(effectiveDotChance) × (DOT层数(dotStacks) - 1)) / (1 + DOT分裂系数(dotSplit) × (DOT层数(dotStacks) - 1))
 ```
 
 当 `dotSplit = 0` 时：
 
 ```
-ehrMulti = effectiveDotChance
+效果命中区(ehrMulti) = 有效DOT概率(effectiveDotChance)
 ```
 
 - `dotSplit`：DOT 分裂系数
@@ -391,11 +391,11 @@ ehrMulti = effectiveDotChance
 #### 治疗
 
 ```
-heal = baseHeal × ohbMulti × healBoostMulti
+治疗量(heal) = 基础治疗(baseHeal) × 治疗加成区(ohbMulti) × 治疗加成区(healBoostMulti)
 
-baseHeal = atkScaling × ATK + hpScaling × HP + flatHeal
-ohbMulti = 1 + OHB
-healBoostMulti = 1 + healBoost
+基础治疗(baseHeal) = 攻击倍率(atkScaling) × 攻击力(ATK) + 生命倍率(hpScaling) × 生命值(HP) + 固定治疗(flatHeal)
+治疗加成区(ohbMulti) = 1 + 治疗加成(OHB)
+治疗加成区(healBoostMulti) = 1 + 治疗加成(healBoost)
 ```
 
 - `OHB`（Outgoing Healing Boost）：治疗量加成
@@ -404,10 +404,10 @@ healBoostMulti = 1 + healBoost
 #### 护盾
 
 ```
-shield = baseShield × shieldBoostMulti
+护盾值(shield) = 基础护盾(baseShield) × 护盾加成区(shieldBoostMulti)
 
-baseShield = defScaling × DEF + hpScaling × HP + atkScaling × ATK + flatShield
-shieldBoostMulti = 1 + shieldBoost
+基础护盾(baseShield) = 防御倍率(defScaling) × 防御力(DEF) + 生命倍率(hpScaling) × 生命值(HP) + 攻击倍率(atkScaling) × 攻击力(ATK) + 固定护盾(flatShield)
+护盾加成区(shieldBoostMulti) = 1 + 护盾加成(shieldBoost)
 ```
 
 - `shieldBoost`：护盾 boost（来自 DMG_BOOST slot，过滤为护盾类型）

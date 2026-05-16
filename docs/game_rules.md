@@ -28,9 +28,9 @@
 ### 基础伤害
 
 ```
-伤害 = abilityMulti × dmgBoostMulti × indDmgBoostMulti × defMulti × resMulti
-      × baseUniversalMulti × vulnMulti × indVulnMulti × finalDmgMulti
-      × critMulti × trueDmgMulti
+伤害 = 技能倍率(abilityMulti) × 增伤(dmgBoostMulti) × 独立增伤(indDmgBoostMulti) × 防御(defMulti) × 抗性(resMulti)
+      × 韧性减伤(baseUniversalMulti) × 易伤(vulnMulti) × 独立易伤(indVulnMulti) × 最终伤害(finalDmgMulti)
+      × 暴击(critMulti) × 真实伤害(trueDmgMulti)
 ```
 
 各乘区详见 [mechanics/damage_formula.md](mechanics/damage_formula.md)。
@@ -46,7 +46,7 @@ AV = 10000 / speed
 ### 削韧值
 
 ```
-最终削韧 = baseToughnessDmg × (1 + breakEfficiencyBoost) × (1 + weaknessBreakEfficiencyBoost) + fixedToughnessDmg
+最终削韧 = baseToughnessDmg × (1 + 削韧值提高(breakEfficiencyBoost)) × (1 + 弱点击破效率提高(weaknessBreakEfficiencyBoost)) + 固定削韧值(fixedToughnessDmg)
 ```
 
 详见 [mechanics/break_system.md](mechanics/break_system.md)。
@@ -64,6 +64,9 @@ AV = 10000 / speed
 
 ## 修改记录
 
+- 2026-05-16：修正 base_stats.md 中打击方式示例角色（单体/扩散/弹射）
+- 2026-05-16：公式变量名统一为中文+英文格式（如 `防御(defMulti)`）；补充参考来源（紫喵Azunya 入坑指南系列）
+- 2026-05-16：超击破公式修正（删除 `dmgBoostMulti`；削韧效率拆为两个乘算乘区；`superBreakModMulti` 修正为 `1 + modifier`）；添加双击破机制；击破/超击破/DOT 删除 `trueDmgMulti`；主公式删除 `trueDmgMulti`；添加 `weakenMulti` 和 `dmgRedMulti`；普攻削韧值修正为 10；速度公式修正为百分比加成；能量恢复效率基础值修正为 100%；效果命中公式加 `min(1, ...)` 上限
 - 2026-05-15：拆分为 `mechanics/` 目录下的独立文档，`game_rules.md` 改为总纲
 - 2026-05-15：新增 1.4 记忆命途与忆灵、2.8 真实伤害、2.2 防御乘区收益特性
 - 2026-05-15：新增独立增伤区、独立易伤区；修正抗性上下限为 ±100%
