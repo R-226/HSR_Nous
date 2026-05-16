@@ -17,9 +17,10 @@
 | **5. 能量机制** | 能量获取、终结技释放、能量恢复效率 | [mechanics/energy_system.md](mechanics/energy_system.md) |
 | **6. 战技点机制** | 战技点上限、获取与消耗规则 | [mechanics/skill_points.md](mechanics/skill_points.md) |
 | **7. Buff / Debuff** | 持续时间、结算机制、层数叠加、驱散规则 | [mechanics/buff_system.md](mechanics/buff_system.md) |
-| **8. 追加攻击** | 追加攻击的触发条件与优先级 | [mechanics/follow_up_attacks.md](mechanics/follow_up_attacks.md) |
-| **9. 嘲讽机制** | 基础嘲讽值、受击概率计算 | [mechanics/taunt_system.md](mechanics/taunt_system.md) |
-| **10. 特殊机制** | 待补充的特殊战斗机制 | [mechanics/special_mechanics.md](mechanics/special_mechanics.md) |
+| **8. 欢愉命途** | 欢愉伤害、阿哈时刻、笑点、好活当赏 | [mechanics/elation_system.md](mechanics/elation_system.md) |
+| **9. 追加攻击** | 追加攻击的触发条件与优先级 | [mechanics/follow_up_attacks.md](mechanics/follow_up_attacks.md) |
+| **10. 嘲讽机制** | 基础嘲讽值、受击概率计算 | [mechanics/taunt_system.md](mechanics/taunt_system.md) |
+| **11. 特殊机制** | 待补充的特殊战斗机制 | [mechanics/special_mechanics.md](mechanics/special_mechanics.md) |
 
 ---
 
@@ -55,12 +56,16 @@ AV = 10000 / speed
 
 ## 待确认事项
 
+- [x] 真实伤害是否受减伤/虚弱影响 — **已确认**：真实伤害完全不受任何常规乘区影响（包括减伤、虚弱、易伤、防御、抗性、增伤、暴伤等）
 - [ ] 追加攻击的触发条件分类是否需要进一步细化
 - [ ] 强烈震荡的触发来源与抵抗机制
-- [ ] 真实伤害是否受减伤/虚弱影响
 
 ## 修改记录
 
+- 2026-05-16：新增 elation_system.md 欢愉命途机制；damage_formula.md 新增 2.14 欢愉伤害；术语统一（笑点乘区 `humorMulti` → `punchlineMulti`，与官方英文对齐：Elation/Punchline/Certified Banger/Aha Instant）；伤害类型表格补充真实伤害与欢愉伤害
+- 2026-05-16：修复章节编号与 game_rules.md 索引对齐（elation 8.x、follow_up_attacks 9.x、taunt 10.x、special 11.x）
+- 2026-05-16：补充 skill_points.md 战技点特殊机制（上限可提升、战技不耗点/多耗点、普攻不回复、终结技回复等）
+- 2026-05-16：确认真实伤害完全不受任何常规乘区影响（包括减伤、虚弱、易伤、防御、抗性、增伤、暴伤等）
 - 2026-05-16：批量修复文档矛盾（game_rules.md 速查公式删除残留 `trueDmgMulti`；待确认事项更新；修改记录修正抗性上下限描述和 `superBreakModMulti` 描述；break_system.md 补充量子/虚数击破独立推条比例；damage_formula.md 暴击表格改用 effectiveCR/effectiveCD、DOT 公式区分角色/击破 DOT、效果命中公式统一加入 EFFECT_RES_PEN、防御等价形式条件修正；energy_system.md 明确能量恢复效率面板为总倍率；buff_system.md 效果命中公式加入 EFFECT_RES_PEN）
 - 2026-05-16：damage_formula.md 修复（删除击破伤害公式中多余的 `增伤(dmgBoostMulti)`；精简 `击破特攻(击破特攻(BE))`、`等级基数(等级基数(levelBase))`、`效果倍率(效果倍率(effectMultiplier))` 等重复嵌套命名）
 - 2026-05-16：修正 base_stats.md 中打击方式示例角色（单体/扩散/弹射）

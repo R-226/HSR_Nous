@@ -46,6 +46,8 @@
 | 常规持续伤害（DOT）| 除双暴区外全部 | 双暴区 |
 | 击破伤害 | 基础击破伤害、击破特攻、韧性系数、防御、易伤、减伤、抗性 | 双暴、增伤 |
 | 超击破伤害 | 超击破基数、击破特攻、削韧、防御、易伤、减伤、抗性 | 双暴、增伤 |
+| 真实伤害 | 仅真实伤害(trueDmgMulti) | 防御、抗性、增伤、暴伤、易伤、减伤、虚弱等全部常规乘区 |
+| 欢愉伤害 | 技能倍率、欢愉度、笑点、双暴、防御、抗性、易伤、真伤、特殊乘区 | 增伤（我方增伤 buff 不生效） |
 
 > 击破伤害与超击破伤害**均不吃增伤**（包括通用增伤和属性增伤）。
 
@@ -190,7 +192,7 @@
 |------|------|
 | 无属性 | 不享受任何属性克制关系，不受敌人抗性乘区影响 |
 | 无攻击判定 | 不会触发需要攻击判定才能激活的效果 |
-| 不受常规乘区影响 | **不享受**增伤、暴伤、易伤、防御穿透等常规乘区加成 |
+| 不受常规乘区影响 | **不享受**增伤、暴伤、易伤、防御穿透、减伤、虚弱等**任何**常规乘区加成 |
 
 #### 真实伤害计算公式
 
@@ -406,6 +408,36 @@
 基础护盾(baseShield) = 防御倍率(defScaling) × 防御力(DEF) + 生命倍率(hpScaling) × 生命值(HP) + 攻击倍率(atkScaling) × 攻击力(ATK) + 固定护盾(flatShield)
 护盾加成区(shieldBoostMulti) = 1 + 护盾加成(shieldBoost)
 ```
+
+### 2.14 欢愉伤害
+
+欢愉命途（Path of Elation）角色的专属伤害类型，公式与常规伤害不同：
+
+```
+欢愉伤害 = 基础乘区(abilityMulti) × 欢愉度(elationMulti) × 笑点(punchlineMulti)
+           × 暴击(critMulti) × 防御(defMulti) × 抗性(resMulti)
+           × 易伤(vulnMulti) × 真实伤害(trueDmgMulti) × 特殊乘区(specialMulti)
+```
+
+| 乘区 | 公式 |
+|------|------|
+| abilityMulti | 技能倍率 × 基础属性（同 2.1） |
+| elationMulti | `1 + 欢愉度(Elation)` |
+| punchlineMulti | `1 + 5 × 笑点(Punchline) / (笑点 + 240)` |
+| critMulti | 同 2.9 暴击乘区 |
+| defMulti | 同 2.2 防御乘区 |
+| resMulti | 同 2.3 抗性乘区 |
+| vulnMulti | `1 + 易伤`（只吃敌方易伤） |
+| trueDmgMulti | 同 2.8 真实伤害 |
+| specialMulti | 角色专属特殊乘区 |
+
+> 欢愉伤害**不享受增伤乘区**（即不吃我方角色提供的增伤 buff）。
+>
+> 笑点乘区收敛到 **6**（即 +500% 上限），等价形式：`6 - 1200 / (笑点 + 240)`。
+>
+> 英文术语：欢愉度 = Elation，笑点 = Punchline，好活当赏 = Certified Banger，阿哈时刻 = Aha Instant。
+>
+> 详见 [elation_system.md](elation_system.md)。
 
 - `shieldBoost`：护盾 boost（来自 DMG_BOOST slot，过滤为护盾类型）
 
