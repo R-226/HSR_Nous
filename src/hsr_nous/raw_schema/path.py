@@ -1,10 +1,10 @@
-"""光锥相关原始数据模型."""
+"""命途原始数据模型."""
 
 from typing import Any, Dict
 
 
-class LightCone:
-    """光锥（武器）档案."""
+class Path:
+    """命途."""
 
     def __init__(self, data: Dict[str, Any]) -> None:
         self._data = data
@@ -14,16 +14,12 @@ class LightCone:
         return self._data.get("id", "")
 
     @property
+    def text(self) -> str:
+        return self._data.get("text", "")
+
+    @property
     def name(self) -> str:
         return self._data.get("name", "")
-
-    @property
-    def rarity(self) -> int:
-        return self._data.get("rarity", 0)
-
-    @property
-    def path(self) -> str:
-        return self._data.get("path", "")
 
     @property
     def desc(self) -> str:
@@ -34,12 +30,12 @@ class LightCone:
         return self._data.get("icon", "")
 
     @property
-    def preview(self) -> str:
-        return self._data.get("preview", "")
+    def icon_middle(self) -> str:
+        return self._data.get("icon_middle", "")
 
     @property
-    def portrait(self) -> str:
-        return self._data.get("portrait", "")
+    def icon_small(self) -> str:
+        return self._data.get("icon_small", "")
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self._data)
