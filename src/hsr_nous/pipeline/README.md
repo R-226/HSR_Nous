@@ -16,7 +16,9 @@ pipeline/
 
 ## 数据来源
 
-数据文件存放于 `data/starrailres/index_new/en/`：
+### StarRailRes 数据
+
+数据文件存放于 `data/starrailres/index_new/{lang}/`：
 
 | 文件 | 内容 |
 |------|------|
@@ -35,6 +37,20 @@ pipeline/
 | `properties.json` | 属性类型映射表（HealRatioBase → Outgoing Healing Boost） |
 | `paths.json` | 命途映射表（Knight → Preservation） |
 | `elements.json` | 元素映射表（Ice → Ice） |
+
+### 敌人数据
+
+数据文件存放于 `data/enemies/enemies.json`（来源: [theBowja/starrail-data](https://github.com/theBowja/starrail-data)）：
+
+| 字段 | 内容 |
+|------|------|
+| `Id` | 敌人 ID |
+| `Name` | 中文名称 |
+| `Introduction` | 敌人介绍 |
+| `ElementalWeaknesses` | 弱点元素列表 |
+| `ElementalResistance` | 各元素抗性 |
+| `SkillList` | 技能列表（含技能名、描述、元素类型） |
+| `VersionAdded` | 添加版本 |
 
 ## Python API
 
@@ -108,6 +124,30 @@ from hsr_nous.pipeline import get_skill_params
 # 获取三月七普攻 Lv.10 的倍率
 params = get_skill_params("100101", level=10)
 # [1.4]
+```
+
+### 敌人数据
+
+```python
+from hsr_nous.pipeline import load_enemies, get_enemy, list_enemies
+
+# 加载所有敌人
+enemies = load_enemies()
+# {"1002011": {"Id": "1002011", "Name": "冰锋", "ElementalWeaknesses": ["Fire", "Thunder"], ...}}
+
+# 按 ID 查询敌人
+enemy = get_enemy("1002011")
+print(enemy["Name"])                  # "冰锋"
+print(enemy["ElementalWeaknesses"])   # ["Fire", "Thunder"]
+print(enemy["ElementalResistance"])   # {"Physical": 0.2, "Fire": 0, ...}
+print(enemy["SkillList"])             # [{"Id": 100201101, "Name": "冰风", ...}]
+
+# 列出所有敌人
+for eid, name in list_enemies()[:5]:
+    print(f"{eid}: {name}")
+# 1002011: 冰锋
+# 1002012: 冰锋
+# 1002013: 无尽寒冬之槊
 ```
 
 ### 远程加载（fallback）

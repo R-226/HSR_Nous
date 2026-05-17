@@ -6,6 +6,7 @@ from hsr_nous.raw_schema.character_rank import CharacterRank
 from hsr_nous.raw_schema.character_skill import CharacterSkill
 from hsr_nous.raw_schema.character_skill_tree import CharacterSkillTree
 from hsr_nous.raw_schema.element import Element
+from hsr_nous.raw_schema.enemy import Enemy
 from hsr_nous.raw_schema.light_cone import LightCone
 from hsr_nous.raw_schema.light_cone_promotion import LightConePromotion
 from hsr_nous.raw_schema.light_cone_rank import LightConeRank
@@ -16,6 +17,7 @@ from hsr_nous.raw_schema.loader import (
     load_character_skills,
     load_characters,
     load_elements,
+    load_enemies,
     load_light_cone_promotions,
     load_light_cone_ranks,
     load_light_cones,
@@ -46,6 +48,7 @@ __all__ = [
     "RelicMainAffix",
     "RelicSubAffix",
     "Element",
+    "Enemy",
     "HsrPath",
     "Property",
     # 加载函数
@@ -62,6 +65,7 @@ __all__ = [
     "load_relic_main_affixes",
     "load_relic_sub_affixes",
     "load_elements",
+    "load_enemies",
     "load_paths",
     "load_properties",
 ]

@@ -19,6 +19,7 @@
 | `element.py` | `Element` | 元素类型（id, name, desc, color, icon） |
 | `path.py` | `Path` | 命途（id, text, name, desc, icon, icon_middle, icon_small） |
 | `property.py` | `Property` | 属性类型定义（type, name, field, affix, ratio, percent, order, icon） |
+| `enemy.py` | `Enemy`, `EnemySkill` | 敌人（id, name, introduction, elemental_weaknesses, elemental_resistance, skill_list, version_added） |
 | `loader.py` | - | 从 JSON 文件加载原始数据为 Python 对象的工具函数 |
 
 ## 设计决策

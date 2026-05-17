@@ -10,6 +10,7 @@ from hsr_nous.raw_schema.character_rank import CharacterRank
 from hsr_nous.raw_schema.character_skill import CharacterSkill
 from hsr_nous.raw_schema.character_skill_tree import CharacterSkillTree
 from hsr_nous.raw_schema.element import Element
+from hsr_nous.raw_schema.enemy import Enemy
 from hsr_nous.raw_schema.light_cone import LightCone
 from hsr_nous.raw_schema.light_cone_promotion import LightConePromotion
 from hsr_nous.raw_schema.light_cone_rank import LightConeRank
@@ -93,3 +94,7 @@ def load_paths(path: Path) -> List[HsrPath]:
 
 def load_properties(path: Path) -> List[Property]:
     return [Property(d) for d in load_json(path)]
+
+
+def load_enemies(path: Path) -> List[Enemy]:
+    return [Enemy(d) for d in load_json(path)]

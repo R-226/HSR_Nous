@@ -2,9 +2,15 @@
 
 from hsr_nous.sim_schema.actor import Actor, StatBlock
 from hsr_nous.sim_schema.action import Action
-from hsr_nous.sim_schema.encounter import Encounter, FormulaConfig, Wave
+from hsr_nous.sim_schema.encounter import Encounter, FormulaConfig, TerminationConfig, Wave
 from hsr_nous.sim_schema.modifiers import Modifier
 from hsr_nous.sim_schema.policy import Policy, PolicyRule, TargetRule, TimingRule
+from hsr_nous.sim_schema.validator import (
+    ValidationError,
+    ValidationResult,
+    validate_encounter,
+    validate_modifier,
+)
 
 __all__ = [
     "Actor",
@@ -12,10 +18,15 @@ __all__ = [
     "Action",
     "Encounter",
     "FormulaConfig",
+    "TerminationConfig",
     "Wave",
     "Modifier",
     "Policy",
     "PolicyRule",
     "TargetRule",
     "TimingRule",
+    "ValidationError",
+    "ValidationResult",
+    "validate_encounter",
+    "validate_modifier",
 ]

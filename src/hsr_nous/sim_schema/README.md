@@ -18,53 +18,247 @@ Encounter（关卡配置）
 ├── globals（全局状态：行动值、战技点、随机种子）
 ├── formula（伤害公式定义）
 ├── actors[]（参战单位）
-│   ├── base_stats（基础属性：生命、攻击、防御、速度等）
-│   ├── actions[]（技能列表）
-│   ├── traces[]（行迹）
-│   ├── eidolons[]（星魂）
-│   ├── light_cone（光锥）
-│   └── relics[]（遗器 + 具体数值）
+│   ├── [角色] base_stats / actions[] / traces[] / eidolons[] / light_cone / relics[]
+│   └── [敌人] base_stats / weakness / resistance / max_toughness / actions[]
+├── waves[]（波次配置）
+│   ├── wave_index / enemy_ids / enemy_levels
+│   └── on_wave_start[]（转波次触发的 buff/效果）
 └── modifiers[]（初始 buff，如环境效果）
+
+数据来源：
+├── 角色数据 ← pipeline → raw_schema (Character/LightCone/Relic)
+└── 敌人数据 ← pipeline → raw_schema (Enemy) + 关卡配置(base_stats/toughness)
 ```
+
+### 波次机制
+
+波次是独立于角色和敌人的行动条节点，类似于"环境回合"：
+
+```yaml
+waves:
+  - wave_index: 1
+    enemy_ids: ["1002011", "1002012", "1002013"]
+    enemy_levels: [80, 80, 80]
+    # 转波次时触发的效果（类似回合开始触发 buff）
+    on_wave_start:
+      - effect_type: "apply_modifier"
+        modifier_id: "MOD_ENV_BUFF_1"
+        target: "all_allies"
+        description: "忘却之庭环境 buff"
+
+  - wave_index: 2
+    enemy_ids: ["1002020", "1002021"]
+    enemy_levels: [80, 80]
+    on_wave_start:
+      - effect_type: "apply_modifier"
+        modifier_id: "MOD_ENV_BUFF_2"
+        target: "all_allies"
+```
+
+**波次触发时机**：
+- `on_wave_start`：新波次开始时，先于角色/敌人回合触发
+- 类似于角色回合开始时触发的 buff，但作用于全局
+- 可用于：环境 buff、波次奖励、难度变化等
 
 ---
 
 ## 1. 伤害公式 (Formula)
 
-公式单独定义，参数从运行时状态读取。
+公式单独定义，参数从运行时状态读取。完整公式参见 `docs/mechanics/damage_formula.md`。
+
+### 1.1 标准伤害公式
 
 ```yaml
 formula:
+  # 标准伤害（12 个乘区）
   damage:
-    # 崩铁标准伤害公式
-    expression: "base_dmg * dmg_multiplier * (1 + dmg_bonus) * def_multiplier * res_multiplier * (1 - toughness_reduction_bonus) * crit_multiplier"
+    expression: "abilityMulti * dmgBoostMulti * indDmgBoostMulti * defMulti * resMulti * baseUniversalMulti * vulnMulti * indVulnMulti * finalDmgMulti * critMulti * weakenMulti * dmgRedMulti"
+
     parameters:
-      - name: base_dmg
+      # 1. 技能倍率乘区
+      - name: abilityMulti
         source: skill_scaling  # 从技能倍率表读取
-      - name: dmg_multiplier
-        source: actor_stat_atk  # 攻击者攻击力
-      - name: def_multiplier
-        expression: "target_def / (target_def + 200 + 10 * attacker_level)"
-      - name: res_multiplier
-        expression: "1 + resistance_delta"
-      - name: crit_multiplier
-        expression: "1 + (is_crit ? crit_dmg : 0)"
 
+      # 2. 增伤乘区（DMG_BOOST）
+      - name: dmgBoostMulti
+        expression: "1 + dmg_bonus + all_dmg_bonus"
+
+      # 3. 独立增伤乘区（独立于增伤）
+      - name: indDmgBoostMulti
+        expression: "1 + ind_dmg_bonus"
+
+      # 4. 防御乘区
+      - name: defMulti
+        expression: "max(0, 1 - def_pen) * (attacker_level * 10 + 200) / (target_def * (1 - def_pen) + attacker_level * 10 + 200)"
+
+      # 5. 抗性乘区（clamp 到 [-1.0, 0.9]）
+      - name: resMulti
+        expression: "clamp(1 - target_res + res_pen, -1.0, 0.9)"
+
+      # 6. 基础通用乘区（韧性状态）
+      - name: baseUniversalMulti
+        expression: "target_toughness > 0 ? 1.0 : 0.9"
+
+      # 7. 易伤乘区
+      - name: vulnMulti
+        expression: "1 + vulnerability"
+
+      # 8. 独立易伤乘区
+      - name: indVulnMulti
+        expression: "1 + ind_vulnerability"
+
+      # 9. 最终伤害乘区
+      - name: finalDmgMulti
+        expression: "1 + final_dmg_bonus"
+
+      # 10. 暴击乘区（单次判定形式）
+      - name: critMulti
+        expression: "is_crit ? (1 + crit_dmg) : 1.0"
+
+      # 11. 虚弱乘区
+      - name: weakenMulti
+        expression: "1 - weaken"
+
+      # 12. 减伤乘区
+      - name: dmgRedMulti
+        expression: "1 - dmg_reduction"
+```
+
+### 1.2 期望伤害公式
+
+用于理论计算（不模拟随机）：
+
+```yaml
+  damage_expected:
+    expression: "abilityMulti * dmgBoostMulti * indDmgBoostMulti * defMulti * resMulti * baseUniversalMulti * vulnMulti * indVulnMulti * finalDmgMulti * critExpectedMulti * weakenMulti * dmgRedMulti"
+
+    parameters:
+      # 暴击使用期望值形式
+      - name: critExpectedMulti
+        expression: "effective_crit_rate * (1 + crit_dmg) + (1 - effective_crit_rate)"
+      # ... 其他乘区同上
+```
+
+### 1.3 特殊伤害类型
+
+```yaml
+  # 真实伤害（无视防御/抗性/减伤）
+  true_damage:
+    expression: "abilityMulti * dmgBoostMulti * critMulti"
+    description: "只受增伤和暴击影响"
+
+  # 击破伤害
+  break_damage:
+    expression: "breakBaseMulti * beMulti * baseUniversalMulti * defMulti * resMulti * vulnMulti * finalDmgMulti * weakenMulti * dmgRedMulti"
+    parameters:
+      - name: breakBaseMulti
+        expression: "3767.5533 * elemental_break_scaling * (0.5 + max_toughness / 120) * special_scaling"
+      - name: beMulti
+        expression: "1 + break_effect"
+
+  # 超击破伤害
+  super_break_damage:
+    expression: "breakBaseMulti * super_break_scaling * beMulti * defMulti * resMulti * vulnMulti * finalDmgMulti * weakenMulti * dmgRedMulti"
+    parameters:
+      - name: super_break_scaling
+        source: skill_super_break_scaling
+
+  # DOT 持续伤害
+  dot_damage:
+    expression: "abilityMulti * dmgBoostMulti * indDmgBoostMulti * defMulti * resMulti * vulnMulti * finalDmgMulti * ehrMulti * dot_tick_coefficient"
+    parameters:
+      - name: ehrMulti
+        expression: "min(1, base_chance * (1 + effect_hit) * (1 - target_effect_res))"
+      - name: dot_tick_coefficient
+        source: dot_tick_coefficient  # 不同 DOT 类型不同
+
+  # 欢愉伤害
+  elation_damage:
+    expression: "abilityMulti * dmgBoostMulti * defMulti * resMulti * baseUniversalMulti * vulnMulti * critMulti * elation_multi * laugh_point_multi"
+    parameters:
+      - name: elation_multi
+        expression: "1 + elation_damage_bonus"
+      - name: laugh_point_multi
+        expression: "1 + 5 * laugh_point / (laugh_point + 240)"
+
+  # 治疗
   heal:
-    expression: "heal_scaling * (1 + heal_bonus) + outgoing_heal"
+    expression: "heal_scaling * (1 + heal_bonus) + flat_heal"
 
+  # 护盾
   shield:
     expression: "shield_scaling * (1 + shield_bonus)"
-
-  break_damage:
-    expression: "base_break * break_level_multiplier * (1 + break_effect) * toughness_multiplier"
 ```
+
+### 1.4 属性击破效果
+
+```yaml
+break_effects:
+  physical:  # 裂伤
+    type: "dot"
+    scaling: "target_max_hp * 0.07"  # 或固定值，取较大
+    duration: 3
+
+  fire:  # 灼烧
+    type: "dot"
+    scaling: "breakBaseMulti * 0.5"
+    duration: 3
+
+  ice:  # 冻结
+    type: "control"
+    duration: 1
+    action_value_penalty: 0.5  # 解冻后行动值为 50%
+
+  thunder:  # 触电
+    type: "dot"
+    scaling: "breakBaseMulti * 0.5"
+    duration: 3
+
+  wind:  # 风化
+    type: "dot"
+    scaling: "breakBaseMulti * 1.0"
+    duration: 3
+
+  quantum:  # 纠缠
+    type: "control"
+    duration: 1
+    extra_damage: "breakBaseMulti * 0.5"  # 解除时造成额外伤害
+
+  imaginary:  # 禁锢
+    type: "control"
+    duration: 1
+    action_value_delay: 0.3  # 行动延后 30%
+```
+
+### 1.5 削韧值表
+
+基础削韧值（按打击方式）：
+
+| 打击方式 | 削韧值 | 示例 |
+|---------|--------|------|
+| 单体 (SingleAttack) | 10 | 普攻、单体战技 |
+| 扩散 (Blast) | 10(主) + 5(扩散) | 普攻扩散、战技扩散 |
+| 群体 (AoEAttack) | 10 | 群体战技、群体终结技 |
+| 弹射 (Bounce) | 5×N | 弹射技能 |
+
+**削韧效率公式**：
+```
+实际削韧 = 基础削韧 × (1 + breakEfficiencyBoost) × (1 + weaknessBreakEfficiencyBoost)
+```
+
+### 1.6 双击破机制
+
+当削韧值 >= 剩余韧性时，触发双击破：
+1. 先结算当前攻击的伤害
+2. 再结算击破伤害
+3. 如果是弱点击破，额外触发弱点击破效果
 
 **设计意图**：
 - 公式与机制解耦，想改公式只需改这里
 - `expression` 用简单数学表达式，运行时求值
 - `source` 指向运行时状态中的某个值
 - 支持自定义新公式（如追加伤害、持续伤害等）
+- 乘区定义与 `docs/mechanics/damage_formula.md` 完全对齐
 
 ---
 
@@ -74,10 +268,39 @@ formula:
 globals:
   action_value: 10000        # 行动值上限（崩铁标准）
   skill_points:
-    max: 5
+    max: 5                   # 可动态提升（如花火至 7）
     current: 3
   # 可扩展：场地效果、环境变量等
 ```
+
+### 2.1 能量系统
+
+能量上限从 `characters.json` 的 `max_sp` 字段获取。
+
+**能量来源与数值**：
+
+| 来源 | 基础回能 | 受能量恢复效率影响 |
+|------|---------|------------------|
+| 普攻 | 20 | 是 |
+| 战技 | 30 | 是 |
+| 终结技回能 | 5 | 否（固定值） |
+| 追加攻击 | 5/10/0 | 是 |
+| 受击 | 5/10/15/20 | 是 |
+| 击杀 | 10 | 否（固定值） |
+
+**能量恢复效率公式**：
+```yaml
+# 实际回能 = 基础回能 × (1 + 能量恢复效率)
+energy_gain: "base_energy * energy_regen"
+
+# 部分固定回能不享受加成
+energy_gain_fixed: "base_energy"  # 如终结技回能、击杀回能
+```
+
+**终结技机制**：
+- 能量满时可释放，释放后能量清零
+- 终结技可立即插队（插入行动序列）
+- 部分角色支持弱化版终结技或存储多次
 
 ---
 
@@ -91,34 +314,82 @@ actor:
   name: "三月七"
   actor_type: "character"    # character | monster
   level: 80
-  max_toughness: 100         # 韧性上限（怪物用）
 
   # ========== 基础属性（只定义变量，值由 adapter 填入）==========
   base_stats:
+    # 基础属性
     hp: 1047
     atk: 564
     def: 485
     spd: 101
-    crit_rate: 0.05
-    crit_dmg: 0.50
+
+    # 暴击
+    crit_rate: 0.05          # 基础 5%
+    crit_dmg: 0.50           # 基础 50%
+
+    # 击破
     break_effect: 0.0
+
+    # 效果
     effect_hit: 0.0
     effect_res: 0.0
-    energy_regen: 1.0
+
+    # 能量
+    max_energy: 120          # 从 characters.json max_sp
+    energy: 0                # 当前能量
+    energy_regen: 1.0        # 能量恢复效率（基础 100%）
+
+    # 治疗/护盾
     heal_bonus: 0.0
     shield_bonus: 0.0
-    dmg_bonus: {}              # 按属性分类：{physical: 0.0, fire: 0.1, ...}
-    resistance: {}             # 属性抗性
-    weakness: ["ice", "wind"]  # 弱点属性
+
+    # 增伤（按属性分类）
+    dmg_bonus:
+      all: 0.0               # 通用增伤
+      physical: 0.0
+      fire: 0.0
+      ice: 0.0
+      thunder: 0.0
+      wind: 0.0
+      quantum: 0.0
+      imaginary: 0.0
+
+    # 抗性（按属性分类）
+    resistance:
+      physical: 0.0
+      fire: 0.0
+      ice: 0.0
+      thunder: 0.0
+      wind: 0.0
+      quantum: 0.0
+      imaginary: 0.0
+
+    # 弱点属性（敌人用）
+    weakness: ["ice", "wind"]
+
+    # 嘲讽值（受击概率权重）
+    taunt: 150               # 存护=150, 毁灭=125, 其他=100, 智识/巡猎=75
+
+    # 欢愉度
+    elation: 0.0
+
+    # 韧性（敌人用）
+    max_toughness: 100       # 韧性上限
+    toughness: 100           # 当前韧性
+
+    # 追加攻击增伤（独立乘区）
+    follow_up_dmg_bonus: 0.0
 
   # ========== 技能 ==========
   actions:
     - action_id: "1001_basic"
       name: "寒冰之箭"
-      action_type: "basic"           # basic | skill | ultimate | talent | follow_up
+      action_type: "basic"           # basic | skill | ultimate | talent | follow_up | elation_damage
       target_type: "enemy_single"    # enemy_single | enemy_blast | enemy_aoe | ally_single | ally_aoe | self
       damage_type: "ice"
       energy_gain: 20
+      skill_point_gain: 1            # 普攻回复 1 战技点
+      toughness_dmg: 10              # 普攻削韧值
       # 技能效果：事件响应列表
       effects:
         - trigger: "on_cast"         # 释放时触发
@@ -135,7 +406,8 @@ actor:
       name: "可爱即是正义"
       action_type: "skill"
       target_type: "ally_single"
-      skill_point_cost: 1
+      skill_point_cost: 1            # 战技消耗 1 战技点
+      toughness_dmg: 20              # 战技削韧值
       effects:
         - trigger: "on_cast"
           target: "primary_target"
@@ -148,6 +420,7 @@ actor:
       action_type: "ultimate"
       target_type: "enemy_aoe"
       energy_cost: 120
+      toughness_dmg: 30              # 终结技削韧值
       effects:
         - trigger: "on_cast"
           target: "all_enemies"
@@ -238,6 +511,8 @@ actor:
 
 Buff 是核心机制，所有持续效果都用它表达。
 
+### 4.1 Modifier 结构
+
 ```yaml
 modifier:
   modifier_id: "MOD_1001_SHIELD"
@@ -245,6 +520,9 @@ modifier:
   modifier_type: "shield"       # buff | debuff | dot | shield | heal | control
   max_stack: 1
   duration: 3                    # 持续回合数，0 为永久
+  stack_mode: "refresh"          # 独立计时 | refresh | replace
+  dispellable: true              # 是否可驱散
+
   # 触发时机和效果
   on_apply:
     - effect_type: "add_stat"
@@ -272,11 +550,59 @@ modifier:
       value: 0.3                  # 减防 30%
 ```
 
-**Buff 触发时机清单**：
+### 4.2 A/B 类 Buff 判定与结算
+
+崩铁 buff 分为 A 类和 B 类，判定和结算时机不同：
+
+| 类型 | 判定时机 | 结算时机 | 示例 |
+|------|---------|---------|------|
+| A 类 | 回合开始 或 行动进行 | 回合开始 或 回合结束 | 多数增伤 buff |
+| B 类 | 行动进行 | 回合结束 | 部分 debuff |
+
+**回合四阶段**：
+1. 回合开始：A 类 buff 判定 + 结算
+2. 行动准备：推拉条、冻结补偿
+3. 行动进行：A/B 类 buff 判定
+4. 回合结束：A/B 类 buff 结算、DOT 伤害
+
+### 4.3 叠加模式
+
+```yaml
+stack_mode: "refresh"  # 默认
+
+# 独立计时：每层独立计算持续时间
+# 示例：风化 DOT，每层独立倒计时
+
+# refresh：刷新持续时间
+# 示例：多数 buff，重复施加时刷新持续时间
+
+# replace：替换
+# 示例：护盾，新护盾替换旧护盾
+```
+
+### 4.4 驱散规则
+
+```yaml
+dispellable: true       # 可驱散（默认）
+dispellable: false      # 不可驱散（如控制效果）
+
+# 驱散顺序：LIFO（后进先出）
+# 净化顺序：LIFO（后进先出）
+```
+
+### 4.5 效果命中公式
+
+```yaml
+# 实际命中概率
+hit_chance: "min(1, base_chance * (1 + effect_hit) * (1 - target_effect_res + effect_res_pen) * (1 - type_res))"
+```
+
+### 4.6 Buff 触发时机清单
 
 | 触发时机 | 说明 |
 |---------|------|
 | `on_battle_start` | 战斗开始时 |
+| `on_wave_start` | 波次开始时 |
 | `on_turn_start` | 携带者回合开始时 |
 | `on_turn_end` | 携带者回合结束时 |
 | `on_before_action` | 行动前（用于增伤 buff） |
@@ -284,6 +610,7 @@ modifier:
 | `on_before_hit` | 造成伤害前 |
 | `on_after_hit` | 造成伤害后 |
 | `on_being_hit` | 受击时 |
+| `on_being_targeted` | 被选为目标时（嘲讽用） |
 | `on_kill` | 击杀敌人时 |
 | `on_ally_kill` | 队友击杀时 |
 | `on_hp_change` | 生命值变化时 |
@@ -444,6 +771,8 @@ initial_modifiers: []   # 开局 buff，如场地效果
 
 `adapters/` 负责把 `raw_schema`（StarRailRes 数据）转换成本文定义的格式：
 
+### 角色数据映射
+
 | raw_schema 数据 | sim_schema 对应 | adapter 工作 |
 |----------------|----------------|------------|
 | `Character` + `LightCone` + `Relics` | `Actor.base_stats` | 计算最终白值 + 绿值 |
@@ -452,6 +781,67 @@ initial_modifiers: []   # 开局 buff，如场地效果
 | `Character.eidolons[]` | `Actor.eidolons[]` | 按解锁状态筛选 |
 | `LightCone.effects` | `Actor.light_cone.effects` | 转换光锥特效 |
 | `RelicSet.bonus` | `Actor.relic_set_effects` | 按件数组装套装效果 |
+
+### 敌人数据映射
+
+敌人和角色共用 Actor 结构，字段映射如下：
+
+| raw_schema 数据 | sim_schema 对应 | adapter 工作 |
+|----------------|----------------|------------|
+| `Enemy.id` | `Actor.actor_id` | 直接映射 |
+| `Enemy.name` | `Actor.name` | 直接映射 |
+| `Enemy.elemental_weaknesses` | `Actor.weakness` | 转为小写：`["Fire", "Ice"]` → `["fire", "ice"]` |
+| `Enemy.elemental_resistance` | `Actor.resistance` | 直接映射：`{"Physical": 0.2}` → `{"physical": 0.2}` |
+| `Enemy.skill_list[]` | `Actor.actions[]` | 映射技能（见下方） |
+| 无（需配置） | `Actor.base_stats` | 从关卡配置或模板读取 |
+| 无（需配置） | `Actor.max_toughness` | 从关卡配置读取 |
+
+**敌人技能映射**：
+
+```yaml
+# EnemySkill → Action
+enemy_skill:
+  Id: 100201101
+  Name: "冰风"
+  SkillDesc: "对我方全体造成少量冰属性伤害。"
+  ElementType: "Ice"
+
+# 映射为
+action:
+  action_id: "100201101"
+  name: "冰风"
+  action_type: "basic"          # 默认 basic，可根据 SkillTypeDesc 判断
+  target_type: "enemy_aoe"      # 根据 SkillDesc 推断
+  damage_type: "ice"            # ElementType 转小写
+  effects:
+    - trigger: "on_cast"
+      target: "all_allies"
+      effect_type: "deal_damage"
+      formula: "damage"
+      scaling: 1.0              # 需从配置或测试获取
+```
+
+**敌人属性配置**：
+
+敌人基础属性（hp、atk、def、spd）不在 enemies.json 中，需要从关卡配置或模板获取：
+
+```yaml
+# encounter 中的敌人配置
+actors:
+  - actor_id: "1002011"
+    actor_type: "monster"
+    level: 80
+    base_stats:
+      hp: 50000
+      atk: 800
+      def: 500
+      spd: 120
+    max_toughness: 100
+    # 以下从 enemies.json 自动填充
+    weakness: ["fire", "thunder"]
+    resistance: {"physical": 0.2, "ice": 0.2}
+    actions: [...]  # 从 SkillList 映射
+```
 
 ---
 
@@ -490,11 +880,441 @@ effects:
 
 **Q: 嘲讽机制怎么实现？**
 
-A: 给目标上一个 `taunt` modifier，在 `on_being_targeted` 时改变目标选择逻辑。
+A: 基于 `taunt` 属性的概率选择：
+```yaml
+# 受击概率 = 角色嘲讽值 / 队伍嘲讽值总和
+hit_probability: "actor.taunt / sum(all_ally.taunt)"
+```
+嘲讽值增减通过 modifier 的 `add_stat` 实现。
+
+**强制嘲讽**：某些技能（如万敌终结技）会强制嘲讽敌人：
+```yaml
+effect_type: "apply_modifier"
+modifier_id: "MOD_FORCED_TAUNT"
+target: "all_enemies"
+duration: 1
+# 效果：被嘲讽的敌人必须攻击施加者
+on_being_targeted:
+  condition: "source.has_modifier(MOD_FORCED_TAUNT)"
+  forced_target: "modifier.caster"
+```
+
+**Q: 欢愉命途怎么实现？**
+
+A: 欢愉命途有独立的伤害类型和乘区：
+```yaml
+# 欢愉伤害公式
+elation_damage:
+  expression: "abilityMulti * dmgBoostMulti * defMulti * resMulti * baseUniversalMulti * vulnMulti * critMulti * elation_multi * laugh_point_multi"
+  parameters:
+    - name: elation_multi
+      expression: "1 + elation_damage_bonus"  # 欢愉度乘区
+    - name: laugh_point_multi
+      expression: "1 + 5 * laugh_point / (laugh_point + 240)"  # 笑点乘区（含稀释）
+
+# 阿哈时刻（欢愉命途特殊机制）
+aha_moment:
+  trigger: "on_laugh_point_full"
+  effect: "extra_turn"  # 获得额外回合
+  speed_bonus: "laugh_point * 0.01"  # 速度加成
+```
+
+**Q: 记忆命途和召唤物（忆灵）怎么实现？**
+
+A: 召唤物是类似角色的单位，但有特殊行为模式。参见下方"召唤物系统"章节。
 
 ---
 
-## 9. 策略 DSL (Policy)
+## 9. 战斗结束条件 (Termination)
+
+结束条件决定模拟何时停止，支持多种模式组合。
+
+```yaml
+# 模式一：固定行动值，统计总伤害
+termination:
+  mode: "fixed_av"
+  max_action_value: 1500
+  max_turns: 50
+
+# 模式二：击杀目标，统计所需行动值
+termination:
+  mode: "kill_target"
+  target_ids: ["M_8001", "M_8002"]  # 指定敌人 ID，空列表表示全部
+  max_turns: 50
+
+# 模式三：生存测试，统计存活回合数
+termination:
+  mode: "survival"
+  max_turns: 20
+
+# 模式四：全灭测试
+termination:
+  mode: "wipe"
+  max_turns: 50
+```
+
+### 9.1 行动值系统
+
+**行动值公式**：
+```yaml
+action_value: "10000 / speed"
+```
+
+**拉条/推条**：
+```yaml
+# 拉条（行动提前）
+effect_type: "advance_action"
+value: 100  # 行动提前 100（立即行动）
+
+# 推条（行动延后）
+effect_type: "delay_action"
+value: 30   # 行动延后 30%
+
+# 立即行动
+effect_type: "immediate_action"
+```
+
+**速度变化时行动值调整**：
+```yaml
+# 当速度发生变化时，行动值需要实时调整
+new_action_value: "current_action_value * old_speed / new_speed"
+```
+
+**冻结/强烈震荡补偿**：
+```yaml
+# 冻结解除后，行动值为初始值的 50%
+action_value_penalty: 0.5
+
+# 强烈震荡解除后，行动值为初始值的 70%
+action_value_penalty: 0.7
+```
+
+**插入行动优先级**：
+1. 追加攻击
+2. 终结技
+3. 命途回响
+4. 额外回合
+5. 战技触发
+
+**后拉先动原则**：行动值相同时，后拉条的单位先行动。
+
+**输出指标（根据模式不同）**：
+
+| 模式 | 主要输出 | 次要输出 |
+|------|---------|---------|
+| `fixed_av` | 总伤害、DPS | 伤害分布、击杀数 |
+| `kill_target` | 所需行动值、回合数 | 伤害效率 |
+| `survival` | 存活回合数、存活率 | 承伤总量、治疗量 |
+| `wipe` | 是否全灭、全灭回合 | 剩余敌人血量 |
+
+---
+
+## 10. 战斗日志 (Combat Log)
+
+战斗模拟器的输出是一个结构化的事件序列，描述从开始到结束的全过程。
+
+### 日志结构
+
+```yaml
+combat_log:
+  encounter_id: "E_001"
+  policy_name: "三月七_default"
+  termination_reason: "max_action_value_reached"  # 或 "target_killed" | "all_allies_dead" | "max_turns"
+
+  # 汇总统计
+  summary:
+    total_damage: 125000
+    total_action_value: 1500
+    total_turns: 12
+    dps: 83.3
+    kills: 3
+    deaths: 0
+
+  # 事件序列（核心输出）
+  events:
+    - timestamp: 0
+      event_type: "battle_start"
+      data: {}
+
+    - timestamp: 0
+      event_type: "turn_start"
+      actor_id: "1001"
+      actor_name: "三月七"
+      action_value: 100
+
+    - timestamp: 0
+      event_type: "action"
+      actor_id: "1001"
+      action_id: "1001_skill"
+      action_name: "可爱即是正义"
+      target_ids: ["1001"]
+      skill_points_before: 3
+      skill_points_after: 2
+
+    - timestamp: 0
+      event_type: "effect"
+      effect_type: "apply_modifier"
+      source_id: "1001"
+      target_id: "1001"
+      modifier_id: "MOD_1001_SHIELD"
+      duration: 3
+
+    - timestamp: 0
+      event_type: "turn_end"
+      actor_id: "1001"
+
+    - timestamp: 100
+      event_type: "turn_start"
+      actor_id: "M_8001"
+      actor_name: "银鬃近卫"
+
+    - timestamp: 100
+      event_type: "action"
+      actor_id: "M_8001"
+      action_id: "M_8001_basic"
+      action_name: "爪击"
+      target_ids: ["1001"]
+
+    - timestamp: 100
+      event_type: "damage"
+      source_id: "M_8001"
+      target_id: "1001"
+      damage: 500
+      damage_type: "physical"
+      is_crit: false
+      target_hp_before: 2000
+      target_hp_after: 1500
+
+    - timestamp: 100
+      event_type: "turn_end"
+      actor_id: "M_8001"
+
+    - timestamp: 1500
+      event_type: "battle_end"
+      reason: "max_action_value_reached"
+```
+
+### 事件类型清单
+
+| event_type | 说明 | 关键字段 |
+|------------|------|---------|
+| `battle_start` | 战斗开始 | - |
+| `battle_end` | 战斗结束 | `reason` |
+| `turn_start` | 回合开始 | `actor_id`, `action_value` |
+| `turn_end` | 回合结束 | `actor_id` |
+| `action` | 执行动作 | `action_id`, `target_ids`, `skill_points_before/after` |
+| `damage` | 造成伤害 | `source_id`, `target_id`, `damage`, `damage_type`, `is_crit` |
+| `heal` | 回复生命 | `source_id`, `target_id`, `heal`, `target_hp_before/after` |
+| `effect` | 效果触发 | `effect_type`, `source_id`, `target_id` |
+| `modifier_apply` | 施加 buff | `modifier_id`, `duration` |
+| `modifier_expire` | buff 过期 | `modifier_id` |
+| `break` | 击破韧性 | `source_id`, `target_id`, `toughness_before/after` |
+| `kill` | 击杀 | `killer_id`, `target_id` |
+| `death` | 死亡 | `actor_id` |
+| `energy_change` | 能量变化 | `actor_id`, `before`, `after` |
+| `skill_point_change` | 战技点变化 | `before`, `after` |
+| `wave_start` | 波次开始 | `wave_index` |
+| `wave_end` | 波次结束 | `wave_index` |
+
+### Agent 分析友好
+
+日志设计考虑了 Agent 分析需求：
+
+1. **可追溯**：每个事件有 `timestamp`（行动值），可重建时间线
+2. **可聚合**：通过 `event_type` 过滤，快速统计伤害/治疗/buff 覆盖率
+3. **可归因**：`source_id` → `target_id` 链路清晰，可追踪伤害来源
+4. **可比较**：相同 encounter 不同 policy 的日志可直接对比
+
+```python
+# Agent 分析示例
+def analyze_log(log: dict) -> dict:
+    events = log["events"]
+
+    # 统计伤害分布
+    damage_events = [e for e in events if e["event_type"] == "damage"]
+    total_damage = sum(e["damage"] for e in damage_events)
+
+    # 统计 buff 覆盖率
+    buff_events = [e for e in events if e["event_type"] == "modifier_apply"]
+
+    # 统计死亡
+    deaths = [e for e in events if e["event_type"] == "death"]
+
+    return {
+        "total_damage": total_damage,
+        "buff_count": len(buff_events),
+        "deaths": len(deaths),
+    }
+```
+
+---
+
+## 11. 召唤物系统 (Summon/Memosprite)
+
+召唤物（忆灵）是类似角色的战斗单位，但有特殊行为模式。
+
+### 11.1 召唤物 Actor 结构
+
+```yaml
+actor:
+  actor_id: "SUMMON_001"
+  name: "小伊卡"
+  actor_type: "summon"           # character | monster | summon
+  level: 80
+  owner_id: "1001"               # 召唤者 ID
+
+  # 召唤物属性（可选，不一定全部拥有）
+  base_stats:
+    hp: 5000                     # 可选：有些召唤物没有生命值
+    atk: 800
+    def: 300
+    spd: 100
+    # ... 其他属性可选
+
+  # 召唤物行为模式
+  behavior:
+    # 行动模式
+    action_mode: "independent"   # "independent" | "triggered"
+
+    # independent：出现在行动条上，独立计算行动值
+    # triggered：不出现在行动条上，仅在触发条件满足时行动
+
+    # 触发条件（triggered 模式下）
+    triggers:
+      - event: "on_owner_action_end"  # 召唤者行动后
+        description: "风堇的小伊卡"
+      - event: "on_ally_hit"          # 队友受击时
+        description: "反击型召唤物"
+      - event: "on_owner_hp_low"      # 召唤者血量低时
+        description: "保护型召唤物"
+
+    # 离场条件
+    leave_conditions:
+      - type: "hp_zero"          # 生命值归零
+      - type: "duration_expire"  # 持续时间到期
+      - type: "owner_leave"      # 召唤者离场
+      - type: "manual"           # 手动召回（技能效果）
+      - type: "mechanic"         # 自身机制（如特定条件触发）
+
+    # 继承规则
+    inheritance:
+      stats: "partial"           # "full" | "partial" | "none"
+      # full：继承召唤者全部属性
+      # partial：部分继承（如只继承攻击力）
+      # none：使用召唤物自身属性
+
+  # 召唤物技能
+  actions:
+    - action_id: "SUMMON_001_basic"
+      name: "伊卡攻击"
+      action_type: "basic"
+      target_type: "enemy_single"
+      toughness_dmg: 10
+
+  # 召唤物特有机制
+  special_mechanics:
+    - mechanic: "heal_on_action"
+      description: "每次行动后恢复召唤者生命值"
+      trigger: "on_after_action"
+      effect_type: "heal"
+      target: "owner"
+      scaling: 0.1
+```
+
+### 11.2 召唤物行为模式
+
+| 模式 | 说明 | 示例 |
+|------|------|------|
+| `independent` | 出现在行动条上，独立计算行动值 | 景元的神君 |
+| `triggered` | 不出现在行动条上，仅在触发条件满足时行动 | 风堇的小伊卡、反击型召唤物 |
+
+**触发条件示例**：
+- `on_owner_action_end`：召唤者行动后（小伊卡）
+- `on_ally_hit`：队友受击时（反击型）
+- `on_owner_hp_low`：召唤者血量低时（保护型）
+- `on_kill`：击杀敌人时（追击型）
+
+### 11.3 召唤物生命周期
+
+```yaml
+# 召唤流程
+summon_flow:
+  trigger: "on_skill_cast"       # 触发时机
+  condition: "skill_id == XXX"   # 触发条件
+  effect_type: "summon"
+  summon_id: "SUMMON_001"
+  position: "after_owner"        # 召唤位置
+
+# 离场流程
+leave_flow:
+  trigger: "on_hp_zero"          # 生命值归零
+  effect_type: "dismiss_summon"
+  summon_id: "SUMMON_001"
+
+# 续命机制（某些召唤物可以被治疗/续命）
+sustain_mechanic:
+  can_be_healed: true            # 是否可被治疗
+  can_be_shielded: true          # 是否可被套盾
+  persistence: "temporary"       # "permanent" | "temporary"
+```
+
+### 11.4 召唤物与忆灵的区别
+
+| 特性 | 普通召唤物 | 忆灵（记忆命途） |
+|------|-----------|----------------|
+| 行动模式 | 多为 `independent` | 多为 `triggered`（on_owner_action_end） |
+| 属性继承 | 部分继承 | 通常独立属性 |
+| 离场条件 | 多样 | 通常与召唤者绑定 |
+| 技能组 | 固定 | 可能随召唤者成长 |
+
+---
+
+## 12. 输入验证 (Validator)
+
+验证器检查 Encounter 配置的合法性，防止非法输入导致模拟器异常。
+
+### 使用方式
+
+```python
+from hsr_nous.sim_schema import validate_encounter, Encounter, Actor
+
+encounter = Encounter(
+    encounter_id="E_001",
+    name="测试关卡",
+    actors=[
+        Actor(actor_id="1001", name="三月七", actor_type="character", level=80),
+    ],
+)
+
+result = validate_encounter(encounter)
+if result.valid:
+    print("验证通过")
+else:
+    for error in result.errors:
+        print(f"ERROR: {error.path} - {error.message}")
+    for warning in result.warnings:
+        print(f"WARNING: {warning.path} - {warning.message}")
+```
+
+### 验证规则
+
+| 类别 | 规则 | 严重程度 |
+|------|------|---------|
+| 角色数量 | 上限 4 个 | error |
+| 敌人数量 | 每波次上限 10 个 | error |
+| 波次数 | 上限 10 个 | error |
+| 等级 | 1-90 | error |
+| 速度 | 必须 > 0 | error |
+| 能量 | 当前 <= 上限 | error |
+| 韧性 | 当前 <= 上限 | error |
+| 暴击率 | 建议 0-1 | warning |
+| 战技点 | current <= max | error |
+| actor_type | character/monster/summon | error |
+| modifier_type | buff/debuff/dot/shield/heal/control | error |
+
+---
+
+## 13. 策略 DSL (Policy)
 
 策略是可独立输入、可搜索优化的战斗决策逻辑。采用 **Rule-based DSL + 参数化混合** 设计。
 

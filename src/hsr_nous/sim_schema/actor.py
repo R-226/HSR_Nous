@@ -1,27 +1,77 @@
 """参战单位定义：仿真器内部使用的角色/敌人表示."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass
 class StatBlock:
+    """基础属性块.
+
+    与 game_rules.md 和 properties.json 对齐的完整属性列表。
+    """
+
+    # 基础属性
     hp: float = 0.0
     atk: float = 0.0
     def_: float = 0.0
-    spd: float = 0.0
-    crit_rate: float = 0.0
-    crit_dmg: float = 0.0
-    break_effect: float = 0.0
-    effect_hit: float = 0.0
-    effect_res: float = 0.0
-    energy_regen: float = 1.0
+    spd: float = 100.0  # 默认速度，避免验证报错
+
+    # 暴击
+    crit_rate: float = 0.05       # 基础 5%
+    crit_dmg: float = 0.50        # 基础 50%
+
+    # 击破
+    break_effect: float = 0.0     # 击破特攻
+
+    # 效果
+    effect_hit: float = 0.0       # 效果命中
+    effect_res: float = 0.0       # 效果抵抗
+
+    # 能量
+    max_energy: float = 0.0       # 能量上限（从 characters.json max_sp）
+    energy: float = 0.0           # 当前能量
+    energy_regen: float = 1.0     # 能量恢复效率（基础 100%）
+
+    # 治疗/护盾
+    heal_bonus: float = 0.0       # 治疗量加成
+    shield_bonus: float = 0.0     # 护盾加成
+
+    # 增伤（按属性分类）
+    dmg_bonus: Dict[str, float] = field(default_factory=dict)
+    # 示例：{"physical": 0.0, "fire": 0.1, "ice": 0.0, ...}
+    # 通用增伤放在 "all" 键
+
+    # 抗性（按属性分类）
+    resistance: Dict[str, float] = field(default_factory=dict)
+    # 示例：{"physical": 0.2, "fire": 0.0, ...}
+
+    # 弱点属性
+    weakness: List[str] = field(default_factory=list)
+    # 示例：["fire", "ice"]
+
+    # 嘲讽值（受击概率权重）
+    taunt: float = 100.0
+    # 存护=150, 毁灭=125, 同协/丰饶/虚无/记忆/欢愉=100, 智识/巡猎=75
+
+    # 欢愉度
+    elation: float = 0.0
+
+    # 韧性（敌人用）
+    max_toughness: float = 0.0    # 韧性上限
+    toughness: float = 0.0        # 当前韧性
+
+    # 追加攻击增伤（独立乘区）
+    follow_up_dmg_bonus: float = 0.0
 
 
 @dataclass
 class Actor:
+    """参战单位（角色或敌人）."""
+
     actor_id: str
     name: str
+    actor_type: str = "character"  # "character" | "monster"
     level: int = 80
     stats: StatBlock = field(default_factory=StatBlock)
     actions: List[str] = field(default_factory=list)

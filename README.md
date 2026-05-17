@@ -18,9 +18,10 @@ src/hsr_nous/
 │   └── README.md      # pipeline 模块详细文档
 │
 ├── raw_schema/        # 原始数据模型（对应 StarRailRes schema）
-│   ├── character.py
-│   ├── light_cone.py
-│   ├── relic.py
+│   ├── character.py   # 角色
+│   ├── light_cone.py  # 光锥
+│   ├── relic.py       # 遗器
+│   ├── enemy.py       # 敌人
 │   └── loader.py      # 原始数据 -> Python 对象
 │
 ├── sim_schema/        # 仿真器输入格式（sim 的唯一输入）
@@ -70,7 +71,8 @@ docs/                  # 战斗规则文档（模拟器"唯一事实来源"）
 tests/                 # 测试目录
 
 data/                  # 数据目录（gitignored）
-└── starrailres/       # StarRailRes 索引数据（en/ cn/ 等多语言）
+├── starrailres/       # StarRailRes 索引数据（en/ cn/ 等多语言）
+└── enemies/           # 敌人数据（来源: theBowja/starrail-data）
 ```
 
 ## 模块边界
@@ -189,7 +191,7 @@ pytest tests/ -v
 
 ## MVP 范围
 
-- 由于缺乏怪物数据，暂时以打桩形式进行战斗模拟（对单/对双/对三/对五），不考虑怪物技能
+- 支持敌人数据（弱点、抗性、技能），可用于更真实的战斗模拟
 - 单队伍（4 人）与单关卡
 - 限定遗器套装与光锥列表
 - 固定随机种子与确定性仿真
@@ -197,7 +199,7 @@ pytest tests/ -v
 
 ## 下一步
 
-- [ ] 完善 `raw_schema` 模型（字段映射与验证）
+- [x] 完善 `raw_schema` 模型（字段映射与验证）
 - [ ] 实现 `adapters` 转换逻辑
 - [ ] 实现表达式引擎（替换 eval）
 - [ ] 完善 `sim.engine` 战斗循环（行动序、伤害结算、buff 管理）

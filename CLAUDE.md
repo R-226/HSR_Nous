@@ -53,6 +53,12 @@ pytest tests/ -v
 # 更新游戏数据（从 StarRailRes GitHub 拉取）
 hsr-data-update
 
+# 更新简体中文数据
+hsr-data-update --lang cn
+
+# 下载敌人数据（来源: theBowja/starrail-data）
+hsr-data-update --enemies
+
 # 指定数据目录
 hsr-data-update --data-dir ./my_data
 ```
@@ -79,3 +85,10 @@ hsr-data-update --data-dir ./my_data
 - 扩展仿真机制：只在 `sim_schema/` 和 `sim/` 中修改
 - 新 Agent：在 `agents/` 中新增，通过 `api/orchestrator.py` 注册
 - 策略优化：修改 `sim_schema/policy.py` 参数，通过 `PolicyInterpreter` 执行
+
+## 数据来源
+
+| 数据 | 来源 | 本地路径 |
+|------|------|----------|
+| 角色/光锥/遗器等 | [Mar-7th/StarRailRes](https://github.com/Mar-7th/StarRailRes) | `data/starrailres/index_new/{lang}/` |
+| 敌人数据 | [theBowja/starrail-data](https://github.com/theBowja/starrail-data) | `data/enemies/enemies.json` |
