@@ -535,3 +535,44 @@ def fetch_from_github(
     req = urllib.request.Request(url, headers={"User-Agent": "HSR_Nous/0.1"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# 敌人数据
+# ---------------------------------------------------------------------------
+
+
+def load_enemies(
+    *, data_dir: Optional[str] = None
+) -> Dict[str, Any]:
+    """加载敌人数据.
+
+    数据来源: theBowja/starrail-data
+    文件位置: data/enemies/enemies.json
+    """
+    if data_dir is None:
+        # 默认使用项目根目录下的 data/enemies
+        root = Path(__file__).parent.parent.parent.parent / "data" / "enemies"
+    else:
+        root = Path(data_dir) / "enemies"
+    path = root / "enemies.json"
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def get_enemy(
+    enemy_id: str, *, data_dir: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """按 ID 查询敌人."""
+    return load_enemies(data_dir=data_dir).get(enemy_id)
+
+
+def list_enemies(
+    *, data_dir: Optional[str] = None
+) -> List[Tuple[str, str]]:
+    """返回所有敌人 (id, name) 列表."""
+    return [
+        (eid, info.get("Name", ""))
+        for eid, info in load_enemies(data_dir=data_dir).items()
+    ]

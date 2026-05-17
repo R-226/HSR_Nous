@@ -14,6 +14,11 @@ _GITHUB_RAW_URL = (
     "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/{index}/{lang}/{filename}"
 )
 
+# theBowja/starrail-data 仓库的敌人数据
+_ENEMY_DATA_URL = (
+    "https://raw.githubusercontent.com/theBowja/starrail-data/main/data/CHS/enemies.json"
+)
+
 CORE_FILES = [
     "characters.json",
     "character_skills.json",
@@ -116,6 +121,43 @@ def run_update(
     return 1 if failed else 0
 
 
+def download_enemies(
+    *,
+    data_dir: str,
+    timeout: float = 30.0,
+    dry_run: bool = False,
+) -> int:
+    """从 theBowja/starrail-data 下载敌人数据."""
+    root = Path(data_dir)
+    out_dir = root / "enemies"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    local_path = out_dir / "enemies.json"
+
+    try:
+        raw = download_file(_ENEMY_DATA_URL, timeout=timeout)
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        print(f"[error] enemies.json: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        json.loads(raw)
+    except json.JSONDecodeError as exc:
+        print(f"[error] enemies.json: invalid JSON - {exc}", file=sys.stderr)
+        return 1
+
+    if local_path.exists() and local_path.read_bytes() == raw:
+        print("[skip] enemies.json: identical to local")
+        return 0
+
+    if dry_run:
+        print(f"[would update] enemies.json: {len(raw)} bytes")
+        return 0
+
+    local_path.write_bytes(raw)
+    print(f"[updated] enemies.json: {len(raw)} bytes")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Update StarRailRes data from Mar-7th/StarRailRes GitHub repository."
@@ -142,7 +184,18 @@ def main() -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="Check remote files without writing"
     )
+    parser.add_argument(
+        "--enemies", action="store_true", help="Download enemy data from theBowja/starrail-data"
+    )
     args = parser.parse_args()
+
+    # 如果指定了 --enemies，只下载敌人数据
+    if args.enemies:
+        return download_enemies(
+            data_dir=args.data_dir,
+            timeout=args.timeout,
+            dry_run=args.dry_run,
+        )
 
     files: Optional[List[str]] = None
     if args.files:

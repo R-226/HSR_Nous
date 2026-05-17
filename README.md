@@ -154,6 +154,12 @@ uv pip install -e ".[dev]"
 # 更新游戏数据（从 StarRailRes GitHub 拉取）
 hsr-data-update
 
+# 更新简体中文数据
+hsr-data-update --lang cn
+
+# 下载敌人数据（来源: theBowja/starrail-data）
+hsr-data-update --enemies
+
 # 指定数据目录
 hsr-data-update --data-dir ./my_data
 ```
