@@ -123,8 +123,14 @@ chars = fetch_from_github("characters.json")
 ## CLI 使用
 
 ```bash
-# 更新数据（从 GitHub 拉取 StarRailRes 最新版本）
+# 更新英文数据（默认）
 hsr-data-update
+
+# 更新简体中文数据
+hsr-data-update --lang cn
+
+# 更新其他语言（cht=繁中, jp=日语, kr=韩语, en=英语, de=德语, es=西语, fr=法语, id=印尼语, pt=葡语, ru=俄语, th=泰语, vi=越南语）
+hsr-data-update --lang jp
 
 # 指定数据目录
 hsr-data-update --data-dir ./my_data

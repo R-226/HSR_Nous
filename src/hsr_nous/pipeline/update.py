@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Optional
 
 _GITHUB_RAW_URL = (
-    "https://raw.githubusercontent.com/Mar-7th/StarRailRes/main/{index}/{lang}/{filename}"
+    "https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/{index}/{lang}/{filename}"
 )
 
 CORE_FILES = [

@@ -51,10 +51,26 @@ src/hsr_nous/
 └── api/               # 编排层
     └── orchestrator.py  # 多 Agent 协作闭环
 
+docs/                  # 战斗规则文档（模拟器"唯一事实来源"）
+├── README.md          # 文档导航与使用说明
+├── game_rules.md      # 战斗规则总览
+└── mechanics/         # 详细机制文档
+    ├── damage_formula.md    # 伤害公式
+    ├── buff_system.md       # 增益/减益系统
+    ├── break_system.md      # 击破机制
+    ├── energy_system.md     # 能量恢复
+    ├── action_sequence.md   # 行动序列
+    ├── base_stats.md        # 基础属性
+    ├── skill_points.md      # 战技点
+    ├── follow_up_attacks.md # 追加攻击
+    ├── taunt_system.md      # 嘲讽系统
+    ├── special_mechanics.md # 特殊机制
+    └── elation_system.md    # 欢愉命途
+
 tests/                 # 测试目录
 
 data/                  # 数据目录（gitignored）
-└── starrailres/       # StarRailRes 索引数据
+└── starrailres/       # StarRailRes 索引数据（en/ cn/ 等多语言）
 ```
 
 ## 模块边界
@@ -116,6 +132,13 @@ policy:
 
 详见 [`sim_schema/README.md`](src/hsr_nous/sim_schema/README.md) 第 9 节。
 
+## 开发工具
+
+本项目使用 **Claude Code** 作为 AI 编程助手，接入以下模型：
+
+- **MiMo**
+- **Kimi**
+
 ## 安装
 
 使用 `uv`：
@@ -160,6 +183,7 @@ pytest tests/ -v
 
 ## MVP 范围
 
+- 由于缺乏怪物数据，暂时以打桩形式进行战斗模拟（对单/对双/对三/对五），不考虑怪物技能
 - 单队伍（4 人）与单关卡
 - 限定遗器套装与光锥列表
 - 固定随机种子与确定性仿真
