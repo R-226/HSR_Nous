@@ -200,6 +200,7 @@ pytest tests/ -v
 ## 下一步
 
 - [x] 完善 `raw_schema` 模型（字段映射与验证）
+- [ ] **人工检查 `sim_schema` 设计是否完备且正确**（对照 `docs/` 游戏规则文档）
 - [ ] 实现 `adapters` 转换逻辑
 - [ ] 实现表达式引擎（替换 eval）
 - [ ] 完善 `sim.engine` 战斗循环（行动序、伤害结算、buff 管理）
