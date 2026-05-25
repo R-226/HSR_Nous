@@ -3,7 +3,10 @@
 
 import argparse
 import json
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -48,6 +51,59 @@ def download_file(url: str, timeout: float = 30.0) -> bytes:
         return resp.read()
 
 
+def _git_sparse_clone(
+    repo_url: str,
+    sparse_paths: List[str],
+    dest_dir: Path,
+    *,
+    branch: str = "master",
+) -> bool:
+    """通过 SSH sparse-checkout 克隆仓库中指定路径的文件."""
+    tmp_dir = Path(tempfile.mkdtemp(prefix="hsr_nous_"))
+    try:
+        subprocess.run(
+            ["git", "init"], cwd=tmp_dir, check=True,
+            capture_output=True, text=True,
+        )
+        subprocess.run(
+            ["git", "remote", "add", "origin", repo_url], cwd=tmp_dir,
+            check=True, capture_output=True, text=True,
+        )
+        subprocess.run(
+            ["git", "config", "core.sparseCheckout", "true"], cwd=tmp_dir,
+            check=True, capture_output=True, text=True,
+        )
+        (tmp_dir / ".git" / "info" / "sparse-checkout").write_text(
+            "\n".join(sparse_paths) + "\n", encoding="utf-8",
+        )
+        result = subprocess.run(
+            ["git", "pull", "--depth=1", "origin", branch], cwd=tmp_dir,
+            capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0:
+            print(f"[error] git pull failed: {result.stderr}", file=sys.stderr)
+            return False
+        # 将克隆的文件复制到目标目录
+        for sparse_path in sparse_paths:
+            src = tmp_dir / sparse_path
+            if src.is_dir():
+                dst = dest_dir / sparse_path
+                dst.mkdir(parents=True, exist_ok=True)
+                for f in src.iterdir():
+                    if f.is_file():
+                        shutil.copy2(f, dst / f.name)
+            elif src.is_file():
+                dst = dest_dir / sparse_path
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+        return True
+    except subprocess.TimeoutExpired:
+        print("[error] git clone timed out", file=sys.stderr)
+        return False
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 def run_update(
     *,
     data_dir: str,
@@ -56,20 +112,53 @@ def run_update(
     index: str = "index_new",
     timeout: float = 30.0,
     dry_run: bool = False,
+    use_ssh: bool = False,
 ) -> int:
     root = Path(data_dir)
     root.mkdir(parents=True, exist_ok=True)
 
     targets = files if files else CORE_FILES
+    out_dir = root / index / lang
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if use_ssh:
+        # SSH sparse-checkout 模式：一次性克隆整个目录
+        print(f"[ssh] cloning {index}/{lang}/ via SSH ...")
+        repo_url = "git@github.com:Mar-7th/StarRailRes.git"
+        sparse_paths = [f"{index}/{lang}/"]
+        if not _git_sparse_clone(repo_url, sparse_paths, root, branch="master"):
+            return 1
+        # 统计结果
+        updated: List[str] = []
+        skipped: List[str] = []
+        for filename in targets:
+            local_path = out_dir / filename
+            if local_path.exists():
+                print(f"[updated] {filename}: {local_path.stat().st_size} bytes")
+                updated.append(filename)
+            else:
+                print(f"[missing] {filename}", file=sys.stderr)
+        manifest_path = out_dir / "manifest.json"
+        manifest = {
+            "source": "https://github.com/Mar-7th/StarRailRes",
+            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "updated": updated,
+            "skipped": skipped,
+            "failed": [],
+        }
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print(f"\n[summary] total={len(targets)}, updated={len(updated)}, skipped={len(skipped)}, failed=0")
+        return 0
+
+    # HTTPS 逐文件下载模式
     failed: List[str] = []
     updated: List[str] = []
     skipped: List[str] = []
 
     for filename in targets:
         url = _GITHUB_RAW_URL.format(index=index, lang=lang, filename=filename)
-        out_dir = root / index / lang
-        out_dir.mkdir(parents=True, exist_ok=True)
-        local_path = out_dir / filename
 
         try:
             raw = download_file(url, timeout=timeout)
@@ -89,6 +178,7 @@ def run_update(
             failed.append(filename)
             continue
 
+        local_path = out_dir / filename
         if local_path.exists():
             local_bytes = local_path.read_bytes()
             if local_bytes == raw:
@@ -104,7 +194,7 @@ def run_update(
         print(f"[updated] {filename}: {len(raw)} bytes")
         updated.append(filename)
 
-    manifest_path = root / index / lang / "manifest.json"
+    manifest_path = out_dir / "manifest.json"
     manifest = {
         "source": "https://github.com/Mar-7th/StarRailRes",
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -126,12 +216,30 @@ def download_enemies(
     data_dir: str,
     timeout: float = 30.0,
     dry_run: bool = False,
+    use_ssh: bool = False,
 ) -> int:
     """从 theBowja/starrail-data 下载敌人数据."""
     root = Path(data_dir)
     out_dir = root / "enemies"
     out_dir.mkdir(parents=True, exist_ok=True)
     local_path = out_dir / "enemies.json"
+
+    if use_ssh:
+        print("[ssh] cloning enemies data via SSH ...")
+        repo_url = "git@github.com:theBowja/starrail-data.git"
+        sparse_paths = ["data/CHS/enemies.json"]
+        if not _git_sparse_clone(repo_url, sparse_paths, root, branch="main"):
+            return 1
+        # git sparse-clone 会放到 root/data/CHS/enemies.json，移到目标位置
+        cloned = root / "data" / "CHS" / "enemies.json"
+        if cloned.exists():
+            shutil.move(str(cloned), str(local_path))
+            shutil.rmtree(root / "data", ignore_errors=True)
+            print(f"[updated] enemies.json: {local_path.stat().st_size} bytes")
+        else:
+            print("[error] enemies.json: not found after clone", file=sys.stderr)
+            return 1
+        return 0
 
     try:
         raw = download_file(_ENEMY_DATA_URL, timeout=timeout)
@@ -187,6 +295,10 @@ def main() -> int:
     parser.add_argument(
         "--enemies", action="store_true", help="Download enemy data from theBowja/starrail-data"
     )
+    parser.add_argument(
+        "--ssh", action="store_true",
+        help="Use git SSH (sparse-checkout) instead of HTTPS for faster downloads in China"
+    )
     args = parser.parse_args()
 
     # 如果指定了 --enemies，只下载敌人数据
@@ -195,6 +307,7 @@ def main() -> int:
             data_dir=args.data_dir,
             timeout=args.timeout,
             dry_run=args.dry_run,
+            use_ssh=args.ssh,
         )
 
     files: Optional[List[str]] = None
@@ -208,6 +321,7 @@ def main() -> int:
         index=args.index,
         timeout=args.timeout,
         dry_run=args.dry_run,
+        use_ssh=args.ssh,
     )
 
 

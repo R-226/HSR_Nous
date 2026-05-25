@@ -162,6 +162,9 @@ hsr-data-update --lang cn
 # 下载敌人数据（来源: theBowja/starrail-data）
 hsr-data-update --enemies
 
+# 使用 SSH 下载（国内网络更快，需配置 GitHub SSH key）
+hsr-data-update --ssh
+
 # 指定数据目录
 hsr-data-update --data-dir ./my_data
 ```

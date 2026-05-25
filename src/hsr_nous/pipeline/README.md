@@ -175,6 +175,11 @@ hsr-data-update --lang jp
 # 下载敌人数据（来源: theBowja/starrail-data）
 hsr-data-update --enemies
 
+# 使用 SSH 下载（国内网络更快，需配置 GitHub SSH key）
+hsr-data-update --ssh
+hsr-data-update --ssh --lang cn
+hsr-data-update --ssh --enemies
+
 # 指定数据目录
 hsr-data-update --data-dir ./my_data
 
@@ -192,9 +197,13 @@ hsr-data-update --dry-run
 
 敌人数据来自 [theBowja/starrail-data](https://github.com/theBowja/starrail-data)，存放在 `data/enemies/enemies.json`。
 
-如果 CLI 下载超时，可手动下载：
+如果 HTTPS 下载超时，可使用 SSH 或手动下载：
 
 ```bash
+# SSH 模式（推荐，国内网络更快）
+hsr-data-update --ssh --enemies
+
+# 手动下载
 mkdir -p data/enemies
 curl -L -o data/enemies/enemies.json "https://raw.githubusercontent.com/theBowja/starrail-data/main/data/CHS/enemies.json"
 ```
