@@ -1,7 +1,7 @@
 """技能/行动定义：普攻、战技、终结技、天赋等."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -10,8 +10,8 @@ class Action:
 
     action_id: str
     name: str
-    action_type: str  # "basic", "skill", "ultimate", "talent", "follow_up", "elation_damage"
-    target_type: str  # "single", "blast", "aoe", "self", "ally_single", "ally_aoe"
+    action_type: str  # "basic", "skill", "ultimate", "talent", "follow_up", "elation_damage", "memosprite_skill", "memosprite_talent"
+    target_type: str  # "enemy_single", "enemy_blast", "enemy_aoe", "ally_single", "ally_aoe", "self", "single", "blast", "aoe", "bounce", "all_enemies", "all_allies"
     damage_type: Optional[str] = None  # "physical", "fire", "ice", "thunder", "wind", "quantum", "imaginary"
 
     # 技能倍率（按等级）
@@ -27,3 +27,6 @@ class Action:
 
     # 削韧值（击破系统核心参数）
     toughness_dmg: int = 0     # 削韧值（普攻10, 战技20, 终结技30）
+
+    # 技能效果列表：描述该动作产生的所有效果（伤害、buff、回能等）
+    effects: List[Dict[str, Any]] = field(default_factory=list)

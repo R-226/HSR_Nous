@@ -81,6 +81,12 @@ VALID_MODIFIER_TYPES = {"buff", "debuff", "dot", "shield", "heal", "control"}
 VALID_TERMINATION_MODES = {"fixed_av", "kill_target", "survival", "wipe"}
 """合法的结束条件模式."""
 
+VALID_STACK_MODES = {"refresh", "independent", "replace"}
+"""合法的叠加模式."""
+
+VALID_BUFF_CLASSES = {"A", "B"}
+"""合法的 A/B 类判定."""
+
 
 # ---------------------------------------------------------------------------
 # 验证函数
@@ -295,5 +301,17 @@ def validate_modifier(modifier: Modifier, path: str) -> ValidationResult:
 
     if modifier.max_stack > MAX_MODIFIER_STACK:
         result.add_error(f"{path}.max_stack", f"叠层数 ({modifier.max_stack}) 超过上限 ({MAX_MODIFIER_STACK})")
+
+    if modifier.stack_mode not in VALID_STACK_MODES:
+        result.add_error(
+            f"{path}.stack_mode",
+            f"非法叠加模式 '{modifier.stack_mode}'，合法值: {VALID_STACK_MODES}",
+        )
+
+    if modifier.buff_class not in VALID_BUFF_CLASSES:
+        result.add_error(
+            f"{path}.buff_class",
+            f"非法 buff 类别 '{modifier.buff_class}'，合法值: {VALID_BUFF_CLASSES}",
+        )
 
     return result
