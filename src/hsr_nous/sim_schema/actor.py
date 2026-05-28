@@ -67,12 +67,21 @@ class StatBlock:
 
 @dataclass
 class Actor:
-    """参战单位（角色或敌人）."""
+    """参战单位（角色、敌人或召唤物）."""
 
     actor_id: str
     name: str
-    actor_type: str = "character"  # "character" | "monster"
+    actor_type: str = "character"  # "character" | "monster" | "summon"
     level: int = 80
     stats: StatBlock = field(default_factory=StatBlock)
     actions: List[str] = field(default_factory=list)
     modifiers: List[str] = field(default_factory=list)
+
+    # 运行时状态
+    max_hp: float = 0.0  # 最大生命值（selectors 的 lowest_hp_pct/highest_hp_pct 依赖它）
+    active_modifiers: List[str] = field(default_factory=list)  # 当前激活的 modifier ID 列表
+    current_av: float = 0.0  # 当前行动值（AV 系统核心字段）
+    base_av: float = 0.0  # 基础行动值（10000/spd，timeline 重置用）
+
+    # 召唤物相关
+    owner_id: Optional[str] = None  # 召唤物的召唤者 ID（仅 summon 类型使用）

@@ -142,10 +142,13 @@ formula:
 ### 1.3 特殊伤害类型
 
 ```yaml
-  # 真实伤害（无视防御/抗性/减伤）
+  # 真实伤害（不受任何常规乘区影响）
   true_damage:
-    expression: "abilityMulti * dmgBoostMulti * critMulti"
-    description: "只受增伤和暴击影响"
+    expression: "true_dmg_source * true_dmg_scaling * trueDmgMulti"
+    description: "无视增伤、暴击、防御、抗性、减伤、虚弱等全部常规乘区，仅受专属真实伤害加成乘区影响"
+    parameters:
+      - name: trueDmgMulti
+        expression: "1 + true_dmg_modifier + hit_true_dmg_modifier"
 
   # 击破伤害
   break_damage:
@@ -163,12 +166,12 @@ formula:
       - name: super_break_scaling
         source: skill_super_break_scaling
 
-  # DOT 持续伤害
+  # DOT 持续伤害（不吃暴击，不吃独立增伤）
   dot_damage:
-    expression: "abilityMulti * dmgBoostMulti * indDmgBoostMulti * defMulti * resMulti * vulnMulti * finalDmgMulti * ehrMulti * dot_tick_coefficient"
+    expression: "abilityMulti * dmgBoostMulti * baseUniversalMulti * defMulti * resMulti * vulnMulti * finalDmgMulti * ehrMulti * dot_tick_coefficient * weakenMulti * dmgRedMulti"
     parameters:
       - name: ehrMulti
-        expression: "min(1, base_chance * (1 + effect_hit) * (1 - target_effect_res))"
+        expression: "min(1, base_chance * (1 + effect_hit) * (1 - target_effect_res + effect_res_pen))"
       - name: dot_tick_coefficient
         source: dot_tick_coefficient  # 不同 DOT 类型不同
 
@@ -183,7 +186,8 @@ formula:
 
   # 治疗
   heal:
-    expression: "heal_scaling * (1 + heal_bonus) + flat_heal"
+    expression: "(heal_scaling * atk + hp_scaling * hp + flat_heal) * (1 + heal_bonus + incoming_heal_bonus)"
+    description: "heal_bonus=治疗者治疗量加成(OHB)，incoming_heal_bonus=被治疗者受治疗量加成"
 
   # 护盾
   shield:
@@ -194,40 +198,63 @@ formula:
 
 ```yaml
 break_effects:
+  # 通用击破效果伤害公式：
+  # breakEffectDmg = levelBase × effectMultiplier × (1 + BE) × vulnMulti × defMulti × resMulti × dmgRedMulti × weakenMulti
+
   physical:  # 裂伤
     type: "dot"
-    scaling: "target_max_hp * 0.07"  # 或固定值，取较大
+    scaling: "min(enemy_type_coeff * target_max_hp, levelBase * toughness_units * 2)"
+    enemy_type_coeff: {elite: 0.07, normal: 0.16}  # 精英/首领 7%，普通 16%
     duration: 3
+    description: "持续伤害，取 HP 比例与韧性基数的较小值"
 
   fire:  # 灼烧
     type: "dot"
-    scaling: "breakBaseMulti * 0.5"
+    scaling: "levelBase * 1.0"  # 100%
     duration: 3
 
   ice:  # 冻结
     type: "control"
+    scaling: "levelBase * 1.0"  # 100% 附加伤害
     duration: 1
-    action_value_penalty: 0.5  # 解冻后行动值为 50%
+    action_value_penalty: 0.5  # 解冻后行动值为初始值的 50%
 
   thunder:  # 触电
     type: "dot"
-    scaling: "breakBaseMulti * 0.5"
+    scaling: "levelBase * 2.0"  # 200%
     duration: 3
 
   wind:  # 风化
     type: "dot"
-    scaling: "breakBaseMulti * 1.0"
+    scaling: "levelBase * 1.0"  # 每层 100%
     duration: 3
+    stackable: true  # 可叠加多层，精英怪击破时直接叠 3 层
+    description: "风化状态下被击破可叠加并重置回合"
 
   quantum:  # 纠缠
     type: "control"
     duration: 1
-    extra_damage: "breakBaseMulti * 0.5"  # 解除时造成额外伤害
+    extra_damage: "levelBase * 0.6 * stacks"  # 60% × 层数，最高 5 层
+    action_value_delay: 0.2  # 行动延后 20%×(1+BE)
+    delay_affected_by_be: true
+    description: "击破时 1 层，每次受击叠 1 层（最高 5 层），伤害触发时结算层数"
 
   imaginary:  # 禁锢
     type: "control"
     duration: 1
-    action_value_delay: 0.3  # 行动延后 30%
+    action_value_delay: 0.3  # 行动延后 30%×(1+BE)
+    delay_affected_by_be: true
+    spd_reduction: 0.1  # 减速 10%（可与其他减速叠加）
+    description: "无伤害，行动延后受击破特攻影响"
+```
+
+**补充：强烈震荡**（docs/mechanics/action_sequence.md 定义，非击破效果）
+
+```yaml
+intense_vibration:  # 强烈震荡
+  type: "control"
+  description: "被强烈震荡的角色下一次行动时无法行动，直接结算回合"
+  action_value_penalty: 0.7  # 解除后行动值为初始值的 70%
 ```
 
 ### 1.5 削韧值表
